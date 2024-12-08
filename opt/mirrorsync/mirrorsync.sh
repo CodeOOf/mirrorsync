@@ -31,7 +31,7 @@ if [ ! -d "$REPOCONFIG_DIR" ]; then
 fi
 
 # Verify that there are any mirror repositories to work with
-REPOCONFIGS=(find $REPOCONFIG_DIR -type f -name "*.conf")
+REPOCONFIGS=(${REPOCONFIG_DIR}/*.conf)
 if [ -z "${REPOCONFIGS[@]}" ]; then
     echo "$REPOCONFIG_DIR is empty or no config files, please provide mirror repos for this script to work with, 
     exiting..."
@@ -39,7 +39,8 @@ if [ -z "${REPOCONFIGS[@]}" ]; then
 fi
 
 # Verify that current path is writable
-if [ ! -w "$PWD" ]; then
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
+if [ ! -w "$SCRIPTDIR" ]; then
     echo "Current directory of the script is not writable for this script, this is required for the lockfile to avoid 
     multiple simultaneous runs of the script, exiting..."
     exit 1
@@ -174,7 +175,7 @@ do
     fi
 
     # Create a new exlude file before running the update
-    EXCLUDEFILE="${PWD}/${localpath}_exclude.txt"
+    EXCLUDEFILE="${SCRIPTDIR}/${localpath}_exclude.txt"
     # Clear file
     > $EXCLUDEFILE
 
