@@ -1,7 +1,7 @@
 #!/bin/env bash
 # 
-# Mirrorsync
-# By: Viktor H. Ingre <viktor.ingre@codeoof.com>
+# Mirrorsync - mirrorsync.sh
+# Author: Viktor H. Ingre <viktor.ingre@codeoof.com>
 #
 # Latest version available at:
 # https://github.com/CodeOOf/mirrorsync
