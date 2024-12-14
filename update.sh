@@ -16,8 +16,8 @@ fi
 
 # Recive full path to script
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
-SRC="${SCRIPTDIR}/opt/mirrorsync"
+SRC="${SCRIPTDIR}/opt/mirrorsync/"
 DST="$1"
 
 # Using rsync to update script folder
-rsync -a "$SRC" "$DST"
+rsync -a --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rwx,Fg=rx,Fo=rx "$SRC" "$DST"
