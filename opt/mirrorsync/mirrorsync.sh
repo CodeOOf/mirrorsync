@@ -85,6 +85,32 @@ elif [ -e "$LOCKFILE" ]; then
         exit 1
 fi
 
+# Main script functions
+print_header_updatelog() {
+    # Expected command:
+    # print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERBYTES" "$AVAILABLEBYTES" "$UPDATELOGFILE" "${OPTS[*]}"
+    
+    # Get script version
+    VERSION=$(cat ${SCRIPTDIR}/.version)
+
+    # Convert bytes into human readable
+    TRANSFERSIZE=$($4 | numfmt --to=iec-i)
+    AVAILABLESIZE=$($5 | numfmt --to=iec-i)
+
+    # Print info to new updatelog
+    printf "# Syncronization with %s using Mirrorsync by CodeOOf\n" "$1" >> "$6" 2>&1
+    printf "# Version: %s\n" "$VERSION" >> "$6" 2>&1
+    printf "# Date: %(%Y-%m-%d %H:%M:%s)T\n" -1 >> "$6" 2>&1
+    printf "# \n" >> "$6" 2>&1
+    printf "# Source: %s\n" "$2" >> "$6" 2>&1
+    printf "# Destination: %s\n" "$3" >> "$6" 2>&1
+    printf "# Using the following %s options for this run:\n" "$1" >> "$6" 2>&1
+    printf "#   %s\n" "$7" >> "$6" 2>&1
+    printf "# This transfer will require: %i of %i available.\n" "$TRANSFERSIZE" "$AVAILABLESIZE" >> "$6" 2>&1
+    printf "---\n" >> "$6" 2>&1
+    printf "Files transfered: \n\n" >> "$6" 2>&1
+}
+
 # Main script
 printf '%s\n' "$$" > "$LOCKFILE"
 
@@ -251,10 +277,7 @@ Cannot update this mirror continuing with the next repository...\n" -1 "$TRANSFE
             fi
 
             # Header for the new log fil
-            printf "Using the following arguments for this run:\n[" >> "$UPDATELOGFILE" 2>&1
-            printf "%s \n" "${OPTS[*]}" >> "$UPDATELOGFILE" 2>&1
-            printf "This transfer will require: %i/%i bytes" "$TRANSFERBYTES" "$AVAILABLEBYTES" >> "$UPDATELOGFILE" 2>&1
-            printf "]\n\n---\n" >> "$UPDATELOGFILE" 2>&1
+            print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERBYTES" "$AVAILABLEBYTES" "$UPDATELOGFILE" "${OPTS[*]}"
 
             # Start updating
             rsync "${opts[@]}" "${SRC}/" "${DST}/" >> "$UPDATELOGFILE" 2>&1
