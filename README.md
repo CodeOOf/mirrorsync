@@ -82,8 +82,8 @@ To perform update, download/update this repository and from the root run:
 ```
 ./update.sh <installation_path>
 
-For example if a default installation:
-./update.sh /opt/mirrorsync
+For example if a default installation as sudo user:
+sudo bash ./update.sh /opt/mirrorsync
 ```
 
 ## Disclaimer

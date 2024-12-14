@@ -21,3 +21,6 @@ DST="$1"
 
 # Using rsync to update script folder
 rsync -a --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rwx,Fg=rx,Fo=rx "$SRC" "$DST"
+
+# Fix the .version file to readonly
+chmod u=r,g=r,o=r "${DST}/.version"
