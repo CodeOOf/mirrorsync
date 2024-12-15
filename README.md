@@ -80,10 +80,11 @@ Add the script to crontab, see ```example.crontab``` in root of this repository.
 ## Update
 To perform update, download/update this repository and from the root run:
 ```
-./update.sh <installation_path>
+Default installation:
+./update.sh
 
-For example if a default installation as sudo user:
-sudo bash ./update.sh /opt/mirrorsync
+Root user updating default installation for a specific service account:
+sudo bash ./update.sh --user mirrorsa --group root
 ```
 
 ## Disclaimer
