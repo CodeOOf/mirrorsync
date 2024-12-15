@@ -48,9 +48,9 @@ while [ "$#" -gt 0 ]; do
         -h|--help) usage; exit 0;;
         --) shift; break;;
         -*) usage_fatal "unknown option: '$1'";;
-        *) break;; # reached the list of file names
+        *) break;;
     esac
-    shift || usage_fatal "option '${arg}' requires a value"
+    shift || echo "Error: option '${arg}' requires a value"
 done
 
 # Recive full path to this script
@@ -72,3 +72,5 @@ if [ ! -z "$USER" ]; then
 elif [ ! -z "$GROUP" ]; then
     chgrp -R "$GROUP" "$DST"
 fi
+
+exit 0
