@@ -77,7 +77,7 @@ fi
 
 # Check for existing lockfile to avoid multiple simultaneously running syncs
 # If lockfile exists but process is dead continue anyway
-if [ -e "$LOCKFILE" ] && ! kill -0 "$(< "$LOCKFILE")" 2>/dev/null; then
+if [ -e "$LOCKFILE" ] && [ ! kill -0 "$(< "$LOCKFILE")" 2>/dev/null ]; then
         printf "[%(%F %T)T] Warning: lockfile exists but process dead, continuing...\n" -1 >> "$LOGFILE" 2>&1
         rm -f "$LOCKFILE"
 elif [ -e "$LOCKFILE" ]; then

@@ -64,7 +64,7 @@ rsync -a --chmod=Du=rwx,Dg=rwx,Do=rx,Fu=rwx,Fg=rx,Fo=rx "$SRC" "$DST"
 chmod u=r,g=r,o=r "${DST}/.version"
 
 # If both group and user is set we can combine them
-if [ ! -z "$USER" && ! -z "$GROUP" ]; then USER="${USER}:${GROUP}"; fi
+if [ ! -z "$USER" ] && [ ! -z "$GROUP" ]; then USER="${USER}:${GROUP}"; fi
 
 # Change ownership on files if it is set
 if [ ! -z "$USER" ]; then 
