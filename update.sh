@@ -47,14 +47,14 @@ while [ "$#" -gt 0 ]; do
     arg=$1
     case $1 in
         # Convert "--opt=value" to --opt "value"
-        "--*'='*") shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
-        "-d"|"--destination") shift; DST=$1; info "Destination set to: $1";;
-        "-u"|"--user") shift; USER=$1; info "User set to: $1";;
-        "-g"|"--group") shift; GROUP=$1; info "Group set to: $1";;
-        "-h"|"--help") usage; exit 0;;
-        "--") shift; break;;
-        "-*") fatal "Error: unknown option: '$1'";;
-        "*") break;;
+        --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
+        -d|--destination) shift; DST=$1; info "Destination set to: $1";;
+        -u|--user) shift; USER=$1; info "User set to: $1";;
+        -g|--group) shift; GROUP=$1; info "Group set to: $1";;
+        -h|--help) usage; exit 0;;
+        --) shift; break;;
+        -*) fatal "Error: unknown option: '$1'";;
+        *) break;;
     esac
     shift || fatal "Error: option '${arg}' requires a value"
 done
