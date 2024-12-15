@@ -13,7 +13,7 @@ USER=""
 GROUP=""
 
 usage() {
-    cat <<EOF
+  cat << EOF
 Usage: $0 [options]
 
 Arguments:
@@ -68,9 +68,9 @@ if [ ! -z "$USER" && ! -z "$GROUP" ]; then USER="${USER}:${GROUP}"
 
 # Change ownership on files if it is set
 if [ ! -z "$USER" ]; then 
-    chown -R "$USER" "$DST" 
+  chown -R "$USER" "$DST" 
 elif [ ! -z "$GROUP" ]; then
-    chgrp -R "$GROUP" "$DST"
+  chgrp -R "$GROUP" "$DST"
 fi
 
 exit 0
