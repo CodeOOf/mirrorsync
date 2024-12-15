@@ -13,7 +13,7 @@ USER=""
 GROUP=""
 
 usage() {
-  cat << EOF
+    cat << EOF
 Usage: $0 [options]
 
 Arguments:
@@ -38,19 +38,19 @@ EOF
 
 # Parse Arguments
 while [ "$#" -gt 0 ]; do
-  arg=$1
-  case $1 in
-    # Convert "--opt=value" to --opt "value"
-    "--*'='*") shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
-    "-d"|"--destination") shift; DST=$1;;
-    "-u"|"--user") shift; USER=$1;;
-    "-g"|"--group") shift; GROUP=$1;;
-    "-h"|"--help") usage; exit 0;;
-    "--") shift; break;;
-    "-*") echo "Error: unknown option: '$1'";;
-    "*") break;;
-  esac
-  shift || echo "Error: option '${arg}' requires a value"
+    arg=$1
+    case $1 in
+        # Convert "--opt=value" to --opt "value"
+        "--*'='*") shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
+        "-d"|"--destination") shift; DST=$1;;
+        "-u"|"--user") shift; USER=$1;;
+        "-g"|"--group") shift; GROUP=$1;;
+        "-h"|"--help") usage; exit 0;;
+        "--") shift; break;;
+        "-*") echo "Error: unknown option: '$1'";;
+        "*") break;;
+    esac
+    shift || echo "Error: option '${arg}' requires a value"
 done
 
 # Recive full path to this script
@@ -68,9 +68,9 @@ if [ ! -z "$USER" && ! -z "$GROUP" ]; then USER="${USER}:${GROUP}"
 
 # Change ownership on files if it is set
 if [ ! -z "$USER" ]; then 
-  chown -R "$USER" "$DST" 
+    chown -R "$USER" "$DST" 
 elif [ ! -z "$GROUP" ]; then
-  chgrp -R "$GROUP" "$DST"
+    chgrp -R "$GROUP" "$DST"
 fi
 
 exit 0
