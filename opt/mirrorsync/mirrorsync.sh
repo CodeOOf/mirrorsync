@@ -16,86 +16,84 @@ HTTP_PORT=80
 HTTPS_PORT=443
 RSYNC_PORT=873
 
+# Setup log functions before logfile validation
+info_nolog() { printf "[%(%F %T)T] Info: %s\n" -1 "$*" >&2; }
+fatal_nolog() { printf "[%(%F %T)T] Error: %s, exiting...\n" -1 "$*"; exit 1; }
+
 # Verify config file is readable
 if [ ! -r "$CONFIGFILE" ]; then
-    echo "Error: The script configfile \"$CONFIGFILE\" is not availble or readable, exiting..."
-    exit 1
+    fatal_nolog "The script configfile \"$CONFIGFILE\" is not availble or readable"
 else
     source "$CONFIGFILE"
 fi
 
 # Verify repo path exists
 if [ ! -d "$REPOCONFIG_DIR" ]; then
-    echo "Error: The directory \"$REPOCONFIG_DIR\" does not exist, exiting..."
-    exit 1
+    fatal_nolog "The directory \"$REPOCONFIG_DIR\" does not exist"
 fi
 
 # Verify that there are any mirror repositories to work with
 REPOCONFIGS=(${REPOCONFIG_DIR}/*.conf)
 if [ "${#REPOCONFIGS[@]}" == 0 ]; then
-    echo "Error: The directory \"$REPOCONFIG_DIR\" is empty or contains no config files, please provide repository "
-    echo "config files that this script can work with, exiting..."
-    exit 1
+    fatal_nolog "The directory \"$REPOCONFIG_DIR\" is empty or contains no config files, please provide repository 
+config files that this script can work with"
 fi
 
 # Verify that current path is writable
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 if [ ! -w "$SCRIPTDIR" ]; then
-    echo "Error: The directory where this script is located is not writable for this user. This is required for the "
-    echo "lockfile to avoid multiple simultaneous runs of the script, exiting..."
-    exit 1
+    fatal_nolog "The directory where this script is located is not writable for this user. This is required for the 
+lockfile to avoid multiple simultaneous runs of the script"
 fi
 
 # Validate current settings
 if [ -z "$LOGPATH" ]; then 
-    echo "Info: Missing variable \"LOGPATH\" at \"$CONFIGFILE\", using default."
+    info_nolog "Missing variable \"LOGPATH\" at \"$CONFIGFILE\", using default"
     LOGPATH="/var/log/mirrorsync"
 fi
 
 if [ ! -w "$LOGPATH" ]; then
-    echo "Error: The log directory is not writable for this user: $LOGPATH"
-    exit 1
+    fatal_nolog "The log directory is not writable for this user: $LOGPATH"
 fi
 
 if [ -z "$LOGFILENAME" ]; then 
-    echo "Info: Missing variable \"LOGFILENAME\" at \"$CONFIGFILE\", using default."
+    info_nolog "Missing variable \"LOGFILENAME\" at \"$CONFIGFILE\", using default"
     LOGFILENAME="$0"
 fi
 LOGFILE="${LOGPATH}/${LOGFILENAME}.log"
 
+# Setup log functions when logfile is availble
+log() { printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" 2>&1; }
+info() { log "Info: $*" >&2; }
+warning() { log "Warning: $*" >&2; }
+error() { log "Error: $*" >&2; }
+fatal() { error "$*, exiting..."; exit 1; }
+
 if [ -z "$DSTPATH" ]; then 
-    printf "[%(%F %T)T] Error: Missing variable \"DSTPATH\" at \"%s\". It is required to know where to write the " \
-    "mirror data, exiting...\n" -1 "$CONFIGFILE" >> "$LOGFILE" 2>&1
-    exit 1
+    fatal "Missing variable \"DSTPATH\" at \"${CONFIGFILE}\". It is required to know where to write the mirror data"
 fi
 
 if [ ! -w "$DSTPATH" ]; then
-    printf "[%(%F %T)T] Info: The destination path \"%s\" is not writable for this user, exiting...\n" \
-    -1 "$DSTPATH" >> "$LOGFILE" 2>&1
-    exit 1
+    fatal "The destination path \"${DSTPATH}\" is not writable for this user"
 fi
 
 # Check for existing lockfile to avoid multiple simultaneously running syncs
 # If lockfile exists but process is dead continue anyway
 if [ -e "$LOCKFILE" ] && [ ! kill -0 "$(< "$LOCKFILE")" 2>/dev/null ]; then
-        printf "[%(%F %T)T] Warning: lockfile exists but process dead, continuing...\n" -1 >> "$LOGFILE" 2>&1
-        rm -f "$LOCKFILE"
+    warning "lockfile exists but process dead, continuing..."
+    rm -f "$LOCKFILE"
 elif [ -e "$LOCKFILE" ]; then
-        printf "[%(%F %T)T] Info: A update is already in progress, exiting...\n" -1 >> "$LOGFILE" 2>&1
-        exit 1
+    info "A update is already in progress, exiting..."
+    exit 1
 fi
 
 # Main script functions
 print_header_updatelog() {
     # Expected command:
-    # print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERBYTES" "$AVAILABLEBYTES" "$UPDATELOGFILE" "${OPTS[*]}"
+    # print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERSIZE" "$AVAILABLESIZE" "$UPDATELOGFILE" "${OPTS[*]}"
     
     # Get script version
     VERSION=$(cat ${SCRIPTDIR}/.version)
-
-    # Convert bytes into human readable
-    TRANSFERSIZE=$($4 | numfmt --to=iec-i)
-    AVAILABLESIZE=$($5 | numfmt --to=iec-i)
 
     # Print info to new updatelog
     printf "# Syncronization with %s using Mirrorsync by CodeOOf\n" "$1" >> "$6" 2>&1
@@ -106,7 +104,7 @@ print_header_updatelog() {
     printf "# Destination: %s\n" "$3" >> "$6" 2>&1
     printf "# Using the following %s options for this run:\n" "$1" >> "$6" 2>&1
     printf "#   %s\n" "$7" >> "$6" 2>&1
-    printf "# This transfer will require: %i of %i available.\n" "$TRANSFERSIZE" "$AVAILABLESIZE" >> "$6" 2>&1
+    printf "# This transfer will use: %i of %i current available.\n" "$4" "$5" >> "$6" 2>&1
     printf "---\n" >> "$6" 2>&1
     printf "Files transfered: \n\n" >> "$6" 2>&1
 }
@@ -115,7 +113,8 @@ print_header_updatelog() {
 printf '%s\n' "$$" > "$LOCKFILE"
 
 # Start updating each mirror repo
-printf "[%(%F %T)T] Info: Synchronization process starting...\n" -1 >> "$LOGFILE" 2>&1
+info "Synchronization process starting..."
+
 for FILE in "${REPOCONFIGS[@]}"
 do
     printf "[%(%F %T)T] Info: Now working on repository defined at: %s\n" -1 "$FILE" >> "$LOGFILE" 2>&1
@@ -136,27 +135,22 @@ do
 
     # Validate local path is defined and able to write to
     if [ -z "$LOCALDIR" ]; then
-        printf "[%(%F %T)T] Error: no local directory is defined in \"%s\", cannot update this mirror continuing with 
-the next repository...\n" -1 "$FILE" >> "$LOGFILE" 2>&1
+        error "no local directory is defined in \"${FILE}\", cannot update this mirror continuing with the next"
         continue
     elif [ ! -w "$DST" ]; then
-        printf "[%(%F %T)T] Error: The path \"%s\" is not writable, cannot update this mirror continuing with the next 
-repository...\n" -1 "$DST" >> "$LOGFILE" 2>&1
+        error "The path \"${DST}\" is not writable, cannot update this mirror continuing with the next"
         continue
     elif [ ! -d "$DST" ]; then
-        printf "[%(%F %T)T] Warning: A local path for \"%s\" does not exists, will create one...\n" -1 "$LOCALDIR" \
-        >> "$LOGFILE" 2>&1
+        warning "A local path for \"${LOCALDIR}\" does not exists, will create one"
         if [ ! mkdir "$DST" 2>/dev/null ]; then
-            printf "[%(%F %T)T] Error: The path \"%s\" could not be created, cannot update this mirror continuing with 
-the next repository...\n" -1 "$DST" >> "$LOGFILE" 2>&1
+            error "The path \"${DST}\" could not be created, cannot update this mirror continuing with the next"
             continue
         fi
     fi
     
     # Validate the remotes variable is a array
     if [ ! $(declare -p REMOTES | grep '^declare -a') ]; then
-        printf "[%(%F %T)T] Error: The remotes defined for \"%s\" is invalid, needs to be a array. cannot update this 
-mirror continuing with the next repository...\n" -1 "$LOCALDIR" >> "$LOGFILE" 2>&1
+        error "The remotes defined for \"${LOCALDIR}\" is invalid, cannot update this mirror continuing with the next"
         continue
     fi
     
@@ -175,8 +169,7 @@ mirror continuing with the next repository...\n" -1 "$LOCALDIR" >> "$LOGFILE" 2>
                 PORT=$HTTP_PORT
                 ;;
             *)
-                printf "[%(%F %T)T] Error: The remote path \"%s\" contains invalid protocol\n" -1 "$REMOTE" >> \
-                "$LOGFILE" 2>&1
+                error "The remote path \"${REMOTE}\" contains a invalid protocol"
                 continue
                 ;;
         esac
@@ -185,22 +178,18 @@ mirror continuing with the next repository...\n" -1 "$LOCALDIR" >> "$LOGFILE" 2>
         DOMAIN=$(echo $REMOTE | awk -F[/:] '{print $4}')
         (echo > /dev/tcp/${DOMAIN}/${PORT}) &>/dev/null
         if [ $? -eq 0 ]; then
-             printf "[%(%F %T)T] Info: Connection valid for \"%s\", continuing with this remote...\n" -1 "$REMOTE" >> \
-            "$LOGFILE" 2>&1
+            info "Connection valid for \"${REMOTE}\", continuing..."
             SRC=$REMOTE
             break
         fi
 
         # If we get here the connection did not work
-        printf "[%(%F %T)T] Warning: No connection with \"%s\", continuing with next remote...\n" -1 "$REMOTE" >> \
-        "$LOGFILE" 2>&1
-
+        warning "No connection with \"${REMOTE}\", testing the next remote..."
     done
 
     # If no source url is defined it means we did not find a valid remote url that we can connect to now
     if [ -z "$SRC" ]; then
-        printf "[%(%F %T)T] Error: No connection with any source provided in \"%s\", cannot update this mirror 
-continuing with the next repository...\n" -1 "$FILE" >> "$LOGFILE" 2>&1
+        error "No connection with any remote found in \"${FILE}\", cannot update this mirror continuing with the next"
         continue
     fi
 
@@ -208,21 +197,18 @@ continuing with the next repository...\n" -1 "$FILE" >> "$LOGFILE" 2>&1
     # So we start with that
     CHECKRESULT=""
     if [ -z "$FILELISTFILE" ]; then
-        printf "[%(%F %T)T] Info: The variable \"FILELISTFILE\" is empty or not defined at \"%s\", continuing...\n" -1 \
-        "$FILE" >> "$LOGFILE" 2>&1
+        info "The variable \"FILELISTFILE\" is empty or not defined at \"${FILE}\", continuing..."
     elif [ "$PORT" == "$RSYNC_PORT" ]; then
         CHECKRESULT=$(rsync --no-motd --dry-run --out-format="%n" "${SRC}/$FILELISTFILE" "${DST}/$FILELISTFILE")
     else
-        printf "[%(%F %T)T] Warning: The protocol used with \"%s\" has not yet been implemented. Move another protocol 
-higher up in list of remote sources if there are any to solve this at the moment. Cannot update this mirror continuing 
-with the next repository...\n" -1 "$SRC" >> "$LOGFILE" 2>&1
+        warning "The protocol used with \"${SRC}\" has not yet been implemented. Move another protocol higher up in 
+list of remotes to solve this at the moment. Cannot update this mirror continuing with the next"
         continue
     fi
 
     # Check the results of the filelist against the local
     if [ -z "$CHECKRESULT" ] && [ ! -z "$FILELISTFILE" ]; then
-        printf "[%(%F %T)T] Info: The filelist file is unchanged at \"%s\", no update available for this mirror 
-continuing with the next repository...\n" -1 "$SRC" >> "$LOGFILE" 2>&1
+        info "The filelist is unchanged at \"${SRC}\", no update required for this mirror continuing with the next"
         continue
     fi
 
@@ -233,8 +219,7 @@ continuing with the next repository...\n" -1 "$SRC" >> "$LOGFILE" 2>&1
 
     # Validate the exclude list variable is a array
     if [ ! $(declare -p EXCLUDELIST | grep '^declare -a') ]; then
-        printf "[%(%F %T)T] Error: The exclude list defined for \"%s\" is invalid or no array, will ignore it.\n" -1 \
-        "$LOCALDIR" >> "$LOGFILE" 2>&1
+        error "The exclude list defined for \"${LOCALDIR}\" is invalid, will ignore it and continue."
         EXCLUDELIST=()
     fi
 
@@ -269,33 +254,34 @@ continuing with the next repository...\n" -1 "$SRC" >> "$LOGFILE" 2>&1
             TRANSFERBYTES=$(rsync "${OPTS[@]}" --dry-run --stats "${SRC}/" "${DST}/" | grep "Total transferred" \
             | sed 's/[^0-9]*//g')
             AVAILABLEBYTES=$(df -B1 $DST | awk 'NR>1{print $4}')
+
+            # Convert bytes into human readable
+            TRANSFERSIZE=$($4 | numfmt --to=iec-i)
+            AVAILABLESIZE=$($5 | numfmt --to=iec-i)
+                
             if [ "$TRANSFERBYTES" > "$AVAILABLEBYTES" ]; then
-                printf "[%(%F %T)T] Error: Not enough space on disk! The transfer needs %i bytes of %i available. 
-Cannot update this mirror continuing with the next repository...\n" -1 "$TRANSFERBYTES" "$AVAILABLEBYTES" "$LOCALDIR" \
-                >> "$LOGFILE" 2>&1
+                error "Not enough space on disk! This transfer needs $TRANSFERSIZE of $AVAILABLESIZE available. Cannot 
+update this mirror continuing with the next"
                 continue
             fi
 
             # Header for the new log fil
-            print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERBYTES" "$AVAILABLEBYTES" "$UPDATELOGFILE" "${OPTS[*]}"
+            print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERSIZE" "$AVAILABLESIZE" "$UPDATELOGFILE" "${OPTS[*]}"
 
             # Start updating
             rsync "${opts[@]}" "${SRC}/" "${DST}/" >> "$UPDATELOGFILE" 2>&1
 
             # Finished
-            printf "[%(%F %T)T] Info: Finished updating mirror \"%s\": \"%s\s.\n" -1 "$LOCALDIR" "$UPDATELOGFILE" \
-            >> "$LOGFILE" 2>&1
+            info "Finished updating mirror \"${LOCALDIR}\", log found at \"${UPDATELOGFILE}\""
             ;;
         *)
-            printf "[%(%F %T)T] Warning: The protocol used with \"%s\" has not yet been implemented. Move another 
-protocol higher up in list of remote sources if there are any to solve this at the moment. Cannot update this mirror 
-continuing with the next repository...\n" -1 "$SRC" >> "$LOGFILE" 2>&1
+            warning "The protocol defined for \"${SRC}\" is invalid, cannot update this mirror continuing with the next"
             ;;
     esac
 done
 
 # Finished
-printf "[%(%F %T)T] Info: Synchronization process finished.\n" -1 >> "$LOGFILE" 2>&1
+info "Synchronization process finished"
 rm -f "$LOCKFILE"
 
 exit 0

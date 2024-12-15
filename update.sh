@@ -12,6 +12,13 @@ DST="/opt/mirrorsync"
 USER=""
 GROUP=""
 
+# Log functions
+log() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
+info() { log "Info: $*" >&2; }
+warning() { log "Warning: $*" >&2; }
+error() { log "Error: $*" >&2; }
+fatal() { error "$*, exiting..."; usage >&2; exit 1; }
+
 usage() {
     cat << EOF
 Usage: $0 [options]
@@ -47,18 +54,20 @@ while [ "$#" -gt 0 ]; do
         "-g"|"--group") shift; GROUP=$1;;
         "-h"|"--help") usage; exit 0;;
         "--") shift; break;;
-        "-*") echo "Error: unknown option: '$1'";;
+        "-*") fatal "Error: unknown option: '$1'";;
         "*") break;;
     esac
-    shift || echo "Error: option '${arg}' requires a value"
+    shift || fatal "Error: option '${arg}' requires a value"
 done
 
 # Recive full path to this script
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 SRC="${SCRIPTDIR}/opt/mirrorsync/"
 
+info "Synchronization process started at $DST"
 # Using rsync to update script folder
 rsync -a --chmod=Du=rwx,Dg=rwx,Do=rx,Fu=rwx,Fg=rx,Fo=rx "$SRC" "$DST"
+info "Synchronization process finished, continuing with ownership"
 
 # Fix the .version file to readonly
 chmod u=r,g=r,o=r "${DST}/.version"
@@ -69,8 +78,13 @@ if [ ! -z "$USER" ] && [ ! -z "$GROUP" ]; then USER="${USER}:${GROUP}"; fi
 # Change ownership on files if it is set
 if [ ! -z "$USER" ]; then 
     chown -R "$USER" "$DST" 
+    info "Added ownership $USER for $DST"
 elif [ ! -z "$GROUP" ]; then
     chgrp -R "$GROUP" "$DST"
+    info "Added ownership group $GROUP for $DST"
 fi
 
+VERSION=$(cat ${DST}/.version)
+info "Update finished, current version installed is: $VERSION"
+info "Exiting..."
 exit 0
