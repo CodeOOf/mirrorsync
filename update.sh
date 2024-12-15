@@ -12,13 +12,6 @@ DST="/opt/mirrorsync"
 USER=""
 GROUP=""
 
-# Log functions
-log() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
-info() { log "Info: $*" >&2; }
-warning() { log "Warning: $*" >&2; }
-error() { log "Error: $*" >&2; }
-fatal() { error "$*, exiting..."; usage >&2; exit 1; }
-
 usage() {
     cat << EOF
 Usage: $0 [options]
@@ -42,6 +35,12 @@ Arguments:
 EOF
 }
 
+# Log functions
+log() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
+info() { log "Info: $*" >&2; }
+warning() { log "Warning: $*" >&2; }
+error() { log "Error: $*" >&2; }
+fatal() { error "$*, exiting..."; usage >&2; exit 1; }
 
 # Parse Arguments
 while [ "$#" -gt 0 ]; do
@@ -49,9 +48,9 @@ while [ "$#" -gt 0 ]; do
     case $1 in
         # Convert "--opt=value" to --opt "value"
         "--*'='*") shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
-        "-d"|"--destination") shift; DST=$1;;
-        "-u"|"--user") shift; USER=$1;;
-        "-g"|"--group") shift; GROUP=$1;;
+        "-d"|"--destination") shift; DST=$1; info "Destination set to: $1";;
+        "-u"|"--user") shift; USER=$1; info "User set to: $1";;
+        "-g"|"--group") shift; GROUP=$1; info "Group set to: $1";;
         "-h"|"--help") usage; exit 0;;
         "--") shift; break;;
         "-*") fatal "Error: unknown option: '$1'";;
@@ -85,6 +84,6 @@ elif [ ! -z "$GROUP" ]; then
 fi
 
 VERSION=$(cat ${DST}/.version)
-info "Update finished, current version installed is: $VERSION"
+info "Update finished, current version is now: $VERSION"
 info "Exiting..."
 exit 0
