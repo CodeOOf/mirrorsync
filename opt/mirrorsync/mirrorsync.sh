@@ -32,7 +32,7 @@ argerror_stdout() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
 # Log functions when logfile is set
 log() { 
     printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" 2>&1
-    if [ $STDOUT -eq 1 ] || [ $VERBOSE_ARG -eq 1]; then log_stdout "$*" >&2; fi
+    if [ $STDOUT -eq 1 ] || [ $VERBOSE_ARG -eq 1 ]; then log_stdout "$*" >&2; fi
 }
 
 info() { 

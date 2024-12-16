@@ -14,7 +14,7 @@ GROUP=""
 
 # Log functions for standard output
 log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
-info_stdout() { log_stdout "Info: $*" >&2; }
+info_stdout() { log_stdout "$*" >&2; }
 warning_stdout() { log_stdout "Warning: $*" >&2; }
 error_stdout() { log_stdout "Error: $*" >&2; }
 fatal_stdout() { error_stdout "$*, exiting..."; exit 1; }
