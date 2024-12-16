@@ -12,6 +12,8 @@ CONFIGFILE="/etc/mirrorsync/mirrorsync.conf"
 REPOCONFIG_DIR="/etc/mirrorsync/repos.conf.d"
 LOCKFILE="$0.lockfile"
 LOGFILE=""
+VERBOSE=""
+VERBOSE_ARG=0
 
 HTTP_PORT=80
 HTTPS_PORT=443
@@ -30,10 +32,13 @@ argerror_stdout() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
 # Log functions when logfile is set
 log() { 
     printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" 2>&1
-    if [ $STDOUT ]; then log_stdout "$*" >&2; fi
+    if [ $STDOUT -eq 1 ] || [ $VERBOSE_ARG -eq 1]; then log_stdout "$*" >&2; fi
 }
 
-info() { log "Info: $*" >&2; }
+info() { 
+    if [ $VERBOSE -eq 1 ]; then log "$*" >&2; fi
+    if [ $VERBOSE_ARG -eq 1 ]; then log_stdout "$*" >&2; fi
+}
 warning() { log "Warning: $*" >&2; }
 error() { log "Error: $*" >&2; }
 fatal() { error "$*, exiting..."; exit 1; }
@@ -49,7 +54,10 @@ Arguments:
     Display this usage message and exit.
 
   -s, --stdout
-    Also stream every output to the system console.
+    Activate Standard Output, streams every output to the system console.
+
+  -v, --verbose
+    Activate Verbose mode, provides more a more detailed output to the system console.
 EOF
 }
 
@@ -60,6 +68,7 @@ while [ "$#" -gt 0 ]; do
         # Convert "--opt=value" to --opt "value"
         --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
         -s|--stdout) STDOUT=1; info_stdout "Standard Output Activated";;
+        -v|--verbose) VERBOSE_ARG=1; info_stdout "Verbose Mode Activated";;
         -h|--help) usage; exit 0;;
         --) shift; break;;
         -*) argerror_stdout "Unknown option: '$1'";;
@@ -154,7 +163,7 @@ print_header_updatelog() {
 printf '%s\n' "$$" > "$LOCKFILE"
 
 # Start updating each mirror repo
-info "Synchronization process starting..."
+log "Synchronization process starting..."
 
 for FILE in "${REPOCONFIGS[@]}"
 do
@@ -220,7 +229,7 @@ do
         DOMAIN=$(echo $REMOTE | awk -F[/:] '{print $4}')
         (echo > /dev/tcp/${DOMAIN}/${PORT}) &>/dev/null
         if [ $? -eq 0 ]; then
-            info "Connection valid for \"${REMOTE}\", continuing..."
+            info "Connection valid for \"${REMOTE}\""
             SRC=$REMOTE
             break
         fi
@@ -239,7 +248,7 @@ do
     # So we start with that
     CHECKRESULT=""
     if [ -z "$FILELISTFILE" ]; then
-        info "The variable \"FILELISTFILE\" is empty or not defined at \"${FILE}\", continuing..."
+        info "The variable \"FILELISTFILE\" is empty or not defined for \"${FILE}\""
     elif [ "$PORT" == "$RSYNC_PORT" ]; then
         CHECKRESULT=$(rsync --no-motd --dry-run --out-format="%n" "${SRC}/$FILELISTFILE" "${DST}/$FILELISTFILE")
     else
@@ -323,7 +332,7 @@ update this mirror continuing with the next"
 done
 
 # Finished
-info "Synchronization process finished"
+log "Synchronization process finished"
 rm -f "$LOCKFILE"
 
 exit 0
