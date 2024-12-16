@@ -82,7 +82,7 @@ fi
 
 # Verify that there are any mirror repositories to work with
 REPOCONFIGS=(${REPOCONFIG_DIR}/*.conf)
-if [ "${#REPOCONFIGS[@]}" == 0 ]; then
+if [ ${#REPOCONFIGS[@]} -eq 0 ]; then
     fatal_stdout "The directory \"$REPOCONFIG_DIR\" is empty or contains no config files, please provide repository 
 config files that this script can work with"
 fi
@@ -266,12 +266,12 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
     fi
 
     # Generate the version exclude list, assumes that the versions are organized at root
-    if [ "$MINMAJOR" > 0 ]; then
+    if [ $MINMAJOR -lt 0 ]; then
         for i in $(seq 0 $((MINMAJOR -1)))
         do
             EXCLUDELIST+=("/$i" "$i.*")
         done
-        if [ "$MINMINOR" > 0 ]; then
+        if [ $MINMINOR -lt 0 ]; then
             for i in $(seq 0 $((MINMINOR -1)))
             do
                 EXCLUDELIST+=("/$MINMAJOR.$i")
@@ -301,7 +301,7 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
             TRANSFERSIZE=$($4 | numfmt --to=iec-i)
             AVAILABLESIZE=$($5 | numfmt --to=iec-i)
                 
-            if [ "$TRANSFERBYTES" > "$AVAILABLEBYTES" ]; then
+            if [ $TRANSFERBYTES -lt $AVAILABLEBYTES ]; then
                 error "Not enough space on disk! This transfer needs $TRANSFERSIZE of $AVAILABLESIZE available. Cannot 
 update this mirror continuing with the next"
                 continue
