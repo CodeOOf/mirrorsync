@@ -11,63 +11,104 @@
 CONFIGFILE="/etc/mirrorsync/mirrorsync.conf"
 REPOCONFIG_DIR="/etc/mirrorsync/repos.conf.d"
 LOCKFILE="$0.lockfile"
+LOGFILE=""
 
 HTTP_PORT=80
 HTTPS_PORT=443
 RSYNC_PORT=873
 
-# Setup log functions before logfile validation
-info_nolog() { printf "[%(%F %T)T] Info: %s\n" -1 "$*" >&2; }
-fatal_nolog() { printf "[%(%F %T)T] Error: %s, exiting...\n" -1 "$*"; exit 1; }
+STDOUT=0
+
+# Log functions for standard output
+log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
+info_stdout() { log_stdout "Info: $*" >&2; }
+warning_stdout() { log_stdout "Warning: $*" >&2; }
+error_stdout() { log_stdout "Error: $*" >&2; }
+fatal_stdout() { error_stdout "$*, exiting..."; exit 1; }
+argerror_stdout() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
+
+# Log functions when logfile is set
+log() { 
+    printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" 2>&1
+    if [ $STDOUT ]; then log_stdout "$*" >&2; fi
+}
+
+info() { log "Info: $*" >&2; }
+warning() { log "Warning: $*" >&2; }
+error() { log "Error: $*" >&2; }
+fatal() { error "$*, exiting..."; exit 1; }
+
+# Arguments Help
+usage() {
+    cat << EOF
+Usage: $0 [options]
+
+Arguments:
+
+  -h, --help
+    Display this usage message and exit.
+
+  -o, --stdout
+    Also stream every output to the system console.
+EOF
+}
+
+# Arguments Parser
+while [ "$#" -gt 0 ]; do
+    arg=$1
+    case $1 in
+        # Convert "--opt=value" to --opt "value"
+        --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
+        -o|--stdout) shift; STDOUT=1; info_stdout "Standard Output Active";;
+        -h|--help) usage; exit 0;;
+        --) shift; break;;
+        -*) argerror_stdout "Unknown option: '$1'";;
+        *) break;;
+    esac
+    shift || argerror_stdout "Option '${arg}' requires a value"
+done
 
 # Verify config file is readable
 if [ ! -r "$CONFIGFILE" ]; then
-    fatal_nolog "The script configfile \"$CONFIGFILE\" is not availble or readable"
+    fatal_stdout "The script configfile \"$CONFIGFILE\" is not availble or readable"
 else
     source "$CONFIGFILE"
 fi
 
 # Verify repo path exists
 if [ ! -d "$REPOCONFIG_DIR" ]; then
-    fatal_nolog "The directory \"$REPOCONFIG_DIR\" does not exist"
+    fatal_stdout "The directory \"$REPOCONFIG_DIR\" does not exist"
 fi
 
 # Verify that there are any mirror repositories to work with
 REPOCONFIGS=(${REPOCONFIG_DIR}/*.conf)
 if [ "${#REPOCONFIGS[@]}" == 0 ]; then
-    fatal_nolog "The directory \"$REPOCONFIG_DIR\" is empty or contains no config files, please provide repository 
+    fatal_stdout "The directory \"$REPOCONFIG_DIR\" is empty or contains no config files, please provide repository 
 config files that this script can work with"
 fi
 
 # Verify that current path is writable
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 if [ ! -w "$SCRIPTDIR" ]; then
-    fatal_nolog "The directory where this script is located is not writable for this user. This is required for the 
+    fatal_stdout "The directory where this script is located is not writable for this user. This is required for the 
 lockfile to avoid multiple simultaneous runs of the script"
 fi
 
 # Validate current settings
 if [ -z "$LOGPATH" ]; then 
-    info_nolog "Missing variable \"LOGPATH\" at \"$CONFIGFILE\", using default"
+    info_stdout "Missing variable \"LOGPATH\" at \"$CONFIGFILE\", using default"
     LOGPATH="/var/log/mirrorsync"
 fi
 
 if [ ! -w "$LOGPATH" ]; then
-    fatal_nolog "The log directory is not writable for this user: $LOGPATH"
+    fatal_stdout "The log directory is not writable for this user: $LOGPATH"
 fi
 
 if [ -z "$LOGFILENAME" ]; then 
-    info_nolog "Missing variable \"LOGFILENAME\" at \"$CONFIGFILE\", using default"
+    info_stdout "Missing variable \"LOGFILENAME\" at \"$CONFIGFILE\", using default"
     LOGFILENAME="$0"
 fi
 LOGFILE="${LOGPATH}/${LOGFILENAME}.log"
-
-# Setup log functions when logfile is availble
-log() { printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" 2>&1; }
-info() { log "Info: $*" >&2; }
-warning() { log "Warning: $*" >&2; }
-error() { log "Error: $*" >&2; }
-fatal() { error "$*, exiting..."; exit 1; }
 
 if [ -z "$DSTPATH" ]; then 
     fatal "Missing variable \"DSTPATH\" at \"${CONFIGFILE}\". It is required to know where to write the mirror data"
@@ -149,7 +190,8 @@ do
     fi
     
     # Validate the remotes variable is a array
-    if [ ! $(declare -p REMOTES | grep '^declare -a') ]; then
+    IS_ARRAY=$(declare -p REMOTES | grep '^declare -a')
+    if [ -z "$IS_ARRAY" ]; then
         error "The remotes defined for \"${LOCALDIR}\" is invalid, cannot update this mirror continuing with the next"
         continue
     fi
