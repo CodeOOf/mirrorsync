@@ -48,7 +48,7 @@ Arguments:
   -h, --help
     Display this usage message and exit.
 
-  -o, --stdout
+  -s, --stdout
     Also stream every output to the system console.
 EOF
 }
@@ -59,7 +59,7 @@ while [ "$#" -gt 0 ]; do
     case $1 in
         # Convert "--opt=value" to --opt "value"
         --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
-        -o|--stdout) shift; STDOUT=1; info_stdout "Standard Output Active";;
+        -s|--stdout) STDOUT=1; info_stdout "Standard Output Activated";;
         -h|--help) usage; exit 0;;
         --) shift; break;;
         -*) argerror_stdout "Unknown option: '$1'";;
