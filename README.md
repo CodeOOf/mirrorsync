@@ -23,6 +23,7 @@ Protocols that script currently has support for is:
 Required packets used with this script, ensure that these are availble before 
 using the script:
 * rsync
+* wget
 Also read the [Disclaimer](#disclaimer).
 
 Installation can be done via the installation script or by using the 

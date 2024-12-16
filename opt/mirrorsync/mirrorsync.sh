@@ -295,8 +295,8 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
     done
 
     # Depending on what protocol the url has the approch on syncronizing the repo is different
-    case "$PORT" in
-        "$RSYNC_PORT")
+    case $PORT in
+        $RSYNC_PORT)
             # Set variables for the run
             OPTS=(-vrlptDSH --delete-excluded --delete-delay --delay-updates --exclude-from=$EXCLUDEFILE)
             UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_rsyncupdate.log"
@@ -324,6 +324,18 @@ update this mirror continuing with the next"
 
             # Finished
             info "Finished updating mirror \"${LOCALDIR}\", log found at \"${UPDATELOGFILE}\""
+            ;;
+        $HTTP_PORT|$HTTPS_PORT)
+            # Wget expects files and directories exclusion as input arguments. So here we read back the excludefile and 
+            # convert to this
+
+
+            # Set variables for the run
+            OPTS=(--mirror --convert-links --show-progress --recursive --wait=5 -e robots=off --exclude-from=$EXCLUDEFILE)
+            UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_httpupdate.log"
+
+            # Size -> --spider
+
             ;;
         *)
             warning "The protocol defined for \"${SRC}\" is invalid, cannot update this mirror continuing with the next"
