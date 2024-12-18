@@ -314,7 +314,7 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
             TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
             info "This synchronization will require $TRANSFERSIZE on local storage"
                 
-            if [ $TRANSFERBYTES -lt $AVAILABLEBYTES ]; then
+            if [ $TRANSFERBYTES -gt $AVAILABLEBYTES ]; then
                 error "Not enough space on disk! This transfer needs $TRANSFERSIZE of $AVAILABLESIZE available. Cannot 
 update this mirror continuing with the next"
                 continue
@@ -331,9 +331,10 @@ update this mirror continuing with the next"
             ;;
         $HTTP_PORT|$HTTPS_PORT)
             # Set variables for the run
-            OPTS=(--no-parent --convert-links --show-progress --recursive -e robots=off --reject="$(tr '\n' ',' < $EXCLUDEFILE)")
+            OPTS=(--no-parent --convert-links --recursive --random-wait --wait 3 --no-http-keep-alive
+            --execute robots=off --level=inf --accept --cut-dirs=0 --reject="$(tr '\n' ',' < $EXCLUDEFILE)")
             UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_httpupdate.log"
-            MIRROR_OPTS=(--mirror)
+            MIRROR_OPTS=(--mirror --show-progress)
 
             # First validate that there is enough space on the disk
             REMOTE_REPOBYTES=$(wget "${OPTS[@]}" --spider  "${SRC}/" 2>&1 | grep "Length" | gawk '{sum+=$2}END{print sum}')
@@ -341,7 +342,7 @@ update this mirror continuing with the next"
             TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
             info "This synchronization will require $TRANSFERSIZE on local storage"
 
-            if [ $TRANSFERBYTES -lt $AVAILABLEBYTES ]; then
+            if [ $TRANSFERBYTES -gt $AVAILABLEBYTES ]; then
                 error "Not enough space on disk! This transfer needs $TRANSFERSIZE of $AVAILABLESIZE available. Cannot 
 update this mirror continuing with the next"
                 continue
