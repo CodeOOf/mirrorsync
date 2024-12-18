@@ -296,7 +296,7 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
 
     # Current disk spaces in bytes
     AVAILABLEBYTES=$(df -B1 $DST | awk 'NR>1{print $4}')
-    AVAILABLESIZE=$($AVAILABLEBYTES | numfmt --to=iec-i)
+    AVAILABLESIZE=$(echo $AVAILABLEBYTES | numfmt --to=iec-i)
     REPOBYTES=$(du -sB1 "${DST}/" | awk 'NR>0{print $1}')
 
     # Depending on what protocol the url has the approch on syncronizing the repo is different
@@ -311,7 +311,7 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
             | sed 's/[^0-9]*//g')
 
             # Convert bytes into human readable
-            TRANSFERSIZE=$($TRANSFERBYTES | numfmt --to=iec-i)
+            TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
             info "This synchronization will require $TRANSFERSIZE on local storage"
                 
             if [ $TRANSFERBYTES -lt $AVAILABLEBYTES ]; then
@@ -337,8 +337,8 @@ update this mirror continuing with the next"
 
             # First validate that there is enough space on the disk
             REMOTE_REPOBYTES=$(wget "${OPTS[@]}" --spider  "${SRC}/" 2>&1 | grep "Length" | gawk '{sum+=$2}END{print sum}')
-            TRANSFERBYTES=$(($REMOTE_REPOBYTES - $REPOBYTES))
-            TRANSFERSIZE=$($TRANSFERBYTES | numfmt --to=iec-i)
+            TRANSFERBYTES=$(expr $REMOTE_REPOBYTES - $REPOBYTES)
+            TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
             info "This synchronization will require $TRANSFERSIZE on local storage"
 
             if [ $TRANSFERBYTES -lt $AVAILABLEBYTES ]; then
