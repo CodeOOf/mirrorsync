@@ -159,6 +159,15 @@ print_header_updatelog() {
     printf "Files transfered: \n\n" >> "$6" 2>&1
 }
 
+get_httpfilelist() {
+    # Get all the links on that page
+    for LINK in $(curl -s "$@" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
+    do 
+        
+        echo "$FILE"
+    done
+}
+
 # Main script
 printf '%s\n' "$$" > "$LOCKFILE"
 
@@ -330,11 +339,17 @@ update this mirror continuing with the next"
             info "Finished updating mirror \"${LOCALDIR}\", log found at \"${UPDATELOGFILE}\""
             ;;
         $HTTP_PORT|$HTTPS_PORT)
+            # Get the initial file manifest:
+            for FILE in $(curl -s "${SRC}/" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
+            do 
+                echo "$FILE"
+            done
+
+
+
             # Set variables for the run
-            OPTS=(--no-parent --convert-links --recursive --random-wait --wait 3 --no-http-keep-alive
-            --execute robots=off --level=inf --accept --cut-dirs=0 --reject="$(tr '\n' ',' < $EXCLUDEFILE)")
+            OPTS=(-mpEk --no-parent --convert-links --random-wait robots=off --reject="$(tr '\n' ',' < $EXCLUDEFILE)")
             UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_httpupdate.log"
-            MIRROR_OPTS=(--mirror --show-progress)
 
             # First validate that there is enough space on the disk
             REMOTE_REPOBYTES=$(wget "${OPTS[@]}" --spider  "${SRC}/" 2>&1 | grep "Length" | gawk '{sum+=$2}END{print sum}')
