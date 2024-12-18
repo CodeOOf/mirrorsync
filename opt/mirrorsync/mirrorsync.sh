@@ -326,15 +326,13 @@ update this mirror continuing with the next"
             info "Finished updating mirror \"${LOCALDIR}\", log found at \"${UPDATELOGFILE}\""
             ;;
         $HTTP_PORT|$HTTPS_PORT)
-            # Wget expects files and directories exclusion as input arguments. So here we read back the excludefile and 
-            # convert to this
-
-
             # Set variables for the run
-            OPTS=(--mirror --convert-links --show-progress --recursive --wait=5 -e robots=off --exclude-from=$EXCLUDEFILE)
+            OPTS=(--mirror --convert-links --show-progress --recursive --wait=5 -e robots=off --reject="$(tr '\n' ',' < $EXCLUDEFILE)")
             UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_httpupdate.log"
 
             # Size -> --spider
+            REMOTEBYTES=$(wget --spider "${OPTS[@]}" "${SRC}/")
+            info "REMOTEBYTES=$REMOTEBYTES"
 
             ;;
         *)
