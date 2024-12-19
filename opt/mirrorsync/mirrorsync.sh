@@ -160,11 +160,12 @@ print_header_updatelog() {
 }
 
 # This is a recursive function that will parse through a website using listed items
-# Usage: get_httpfilelist "http://example.com/pub/repo/" 
-# With the ending slash
+# Usage: get_httpfilelist "http://example.com/pub/repo/" "/my/local/destination/"
+# With the ending slash on paths and urls
 get_httpfilelist() {
     FILELIST=()
     BASEURL=$1
+    LOCALPATH=$2
 
     # Get all the links on that page
     info "Begin scraping paths from \"$BASEURL\"..."
@@ -172,13 +173,14 @@ get_httpfilelist() {
     do 
         # Constructs the new url, assuming relative paths at remote
         URL="${BASEURL}$HREF"
+        DST="${LOCALPATH}$HREF"
 
         # TODO. Exclude list
 
         # Check if the href ends with slash and not parent
         if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
             # Call recursivly until no more directories are found
-            FILELIST+=$(get_httpfilelist "$URL")
+            FILELIST+=$(get_httpfilelist "$URL" "$DST")
         # As long as it is not a parent path, assume as file
         elif [ "${HREF: -1:1}" != $'/' ]; then
             BYTES=""
@@ -187,13 +189,25 @@ get_httpfilelist() {
             if curl -ivs "$URL" 2>&1; then
                 # Extract content information from header response
                 HEADER=$(curl -sI "$URL")
-                BYTES=$(echo $HEADER | grep -i "Content-Length" | awk '{print $2}')
-                MODIFIED=$(echo $HEADER | grep -i "Last-Modified" | awk '{print $2}')
+                BYTES=$(echo "${HEADER[*]}" | grep -i "Content-Length" | awk '{print $2}')
+                MODIFIED=$(echo "${HEADER[*]}" | grep -i "Last-Modified" | awk '{print $2}')
+                LOCATION=$(echo "${HEADER[*]}" | grep -i "Location" | awk '{print $2}')
 
                 if [ ! -z "$BYTES" ]; then
-                    info "Found a \"${BYTES}\" byte large file at remote \"${URL}\" last modifed at \"${MODIFIED}\""
+                    info "Found a \"${BYTES}\" bytes large file at address \"${URL}\" last modifed \"${MODIFIED}\""
                     # Add to the array
-                    FILE=("$URL" "$MODIFIED" "$BYTES")
+                    FILE=("$URL" "$MODIFIED" "$BYTES" "$DST")
+                    FILELIST+=($FILE)
+                
+                # Sometimes the file is located on another domain
+                elif [ ! -z "$LOCATION" ]; then
+                    HEADER=$(curl -sI "$LOCATION")
+                    BYTES=$(echo "${HEADER[*]}" | grep -i "Content-Length" | awk '{print $2}')
+                    MODIFIED=$(echo "${HEADER[*]}" | grep -i "Last-Modified" | awk '{print $2}')
+
+                    warning "Found a \"${BYTES}\" bytes large file on another domain \"${URL}\" last modifed \"${MODIFIED}\""
+                    # Add to the array
+                    FILE=("$URL" "$MODIFIED" "$BYTES" "$DST")
                     FILELIST+=($FILE)
                 else
                     info "Not a file \"$URL\", ignoring path"
@@ -356,7 +370,7 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
             UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_rsyncupdate.log"
 
             # First validate that there is enough space on the disk
-            TRANSFERBYTES=$(rsync "${OPTS[@]}" --dry-run --stats "${SRC}/" "${DST}/" | grep "Total transferred" \
+            TRANSFERBYTES=$(rsync "${OPTS[@]}" --dry-run --stats "${SRC}/" "${DST}/" | grep -i "Total transferred" \
             | sed 's/[^0-9]*//g')
 
             # Convert bytes into human readable
@@ -385,7 +399,7 @@ update this mirror continuing with the next"
                 echo "$FILE"
             done
 
-            TEST=$(get_httpfilelist "${SRC}/")
+            TEST=$(get_httpfilelist "${SRC}/" "${DST}/")
             echo "Recursive filelist: ${TEST[*]}"
 
             # Set variables for the run
@@ -393,7 +407,7 @@ update this mirror continuing with the next"
             UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_httpupdate.log"
 
             # First validate that there is enough space on the disk
-            REMOTE_REPOBYTES=$(wget "${OPTS[@]}" --spider  "${SRC}/" 2>&1 | grep "Length" | gawk '{sum+=$2}END{print sum}')
+            REMOTE_REPOBYTES=$(wget "${OPTS[@]}" --spider  "${SRC}/" 2>&1 | grep -i "Length" | gawk '{sum+=$2}END{print sum}')
             TRANSFERBYTES=$(expr $REMOTE_REPOBYTES - $REPOBYTES)
             TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
             info "This synchronization will require $TRANSFERSIZE on local storage"
