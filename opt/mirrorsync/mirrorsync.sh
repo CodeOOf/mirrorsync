@@ -189,11 +189,15 @@ get_httpfilelist() {
                 HEADER=$(curl -sI "$URL")
                 BYTES=$(echo $HEADER | grep -i "Content-Length" | awk '{print $2}')
                 MODIFIED=$(echo $HEADER | grep -i "Last-Modified" | awk '{print $2}')
-                
-                info "Found a \"${BYTES}\" byte large file at remote \"${URL}\" last modifed at \"${MODIFIED}\""
-                # Add to the array
-                FILE=("$URL" "$MODIFIED" "$BYTES")
-                FILELIST+=($FILE)
+
+                if [ ! -z "$BYTES" ]; then
+                    info "Found a \"${BYTES}\" byte large file at remote \"${URL}\" last modifed at \"${MODIFIED}\""
+                    # Add to the array
+                    FILE=("$URL" "$MODIFIED" "$BYTES")
+                    FILELIST+=($FILE)
+                else
+                    info "Not a file \"$URL\", ignoring path"
+                fi
             else
                 info "Invalid URL constructed at remote: $URL"
             fi
