@@ -169,7 +169,7 @@ get_httpfilelist() {
 
     # Get all the links on that page
     info "Begin scraping paths from \"$BASEURL\"..."
-    for HREF in $(curl -s "$BASEURL" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
+    for HREF in $(curl -s "$BASEURL" 2>&1 | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
         # Constructs the new url, assuming relative paths at remote
         URL="${BASEURL}$HREF"
@@ -180,7 +180,13 @@ get_httpfilelist() {
         # Check if the href ends with slash and not parent
         if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
             # Call recursivly until no more directories are found
-            FILELIST+=$(get_httpfilelist "$URL" "$DST")
+            RECURSIVECALL=$(get_httpfilelist "$URL" "$DST" 2>&1)
+
+            # Only add to collection if array is populated
+            IS_ARRAY=$(declare -p RECURSIVECALL 2>&1 | grep '^declare -a')
+            if [ -z "$IS_ARRAY" ]; then
+                FILELIST+=$RECURSIVECALL
+            fi
         # As long as it is not a parent path, assume as file
         elif [ "${HREF: -1:1}" != $'/' ]; then
             BYTES=""
@@ -188,7 +194,7 @@ get_httpfilelist() {
             # Verify that URL exists
             if curl -ivs "$URL" 2>&1; then
                 # Extract content information from header response
-                HEADER=$(curl -sI "$URL")
+                HEADER=$(curl -sI "$URL" 2>&1)
 
                 # Check if location exists first so that we extract information from the file source
                 LOCATION=$(echo "${HEADER[*]}" | grep -i "Location" | awk '{print $2}')
@@ -202,7 +208,7 @@ get_httpfilelist() {
                 MODIFIED=$(echo "${HEADER[*]}" | grep -i "Last-Modified" | awk '{print $2}')
 
                 if [ ! -z "$BYTES" ]; then
-                    info "Found a \"${BYTES}\" bytes large file at address \"${URL}\" last modifed \"${MODIFIED}\""
+                    info "Added a \"${BYTES}\" bytes large file from \"${URL}\" that was last modifed \"${MODIFIED}\" to the list"
                     # Add to the array
                     FILE=("$URL" "$MODIFIED" "$BYTES" "$DST")
                     FILELIST+=($FILE)
@@ -310,7 +316,7 @@ do
     if [ -z "$FILELISTFILE" ]; then
         info "The variable \"FILELISTFILE\" is empty or not defined for \"${FILE}\""
     elif [ "$PORT" == "$RSYNC_PORT" ]; then
-        CHECKRESULT=$(rsync --no-motd --dry-run --out-format="%n" "${SRC}/$FILELISTFILE" "${DST}/$FILELISTFILE")
+        CHECKRESULT=$(rsync --no-motd --dry-run --out-format="%n" "${SRC}/$FILELISTFILE" "${DST}/$FILELISTFILE" 2>&1)
     else
         warning "The protocol used with \"${SRC}\" has not yet been implemented. Move another protocol higher up in 
 list of remotes to solve this at the moment. Cannot update this mirror continuing with the next"
@@ -390,13 +396,8 @@ update this mirror continuing with the next"
             info "Finished updating mirror \"${LOCALDIR}\", log found at \"${UPDATELOGFILE}\""
             ;;
         $HTTP_PORT|$HTTPS_PORT)
-            # Get the initial file manifest:
-            for FILE in $(curl -s "${SRC}/" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
-            do 
-                echo "$FILE"
-            done
 
-            TEST=$(get_httpfilelist "${SRC}/" "${DST}/")
+            TEST=$(get_httpfilelist "${SRC}/" "${DST}/" 2>&1)
             echo "Recursive filelist: ${TEST[*]}"
 
             # Set variables for the run
