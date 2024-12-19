@@ -189,23 +189,20 @@ get_httpfilelist() {
             if curl -ivs "$URL" 2>&1; then
                 # Extract content information from header response
                 HEADER=$(curl -sI "$URL")
+
+                # Check if location exists first so that we extract information from the file source
+                LOCATION=$(echo "${HEADER[*]}" | grep -i "Location" | awk '{print $2}')
+                if [ ! -z "$Location" ]; then
+                    warning "Found a file at another domain \"${LOCATION}\""
+                    HEADER=$(curl -sI "$LOCATION")
+                fi
+
+                # Extract file information
                 BYTES=$(echo "${HEADER[*]}" | grep -i "Content-Length" | awk '{print $2}')
                 MODIFIED=$(echo "${HEADER[*]}" | grep -i "Last-Modified" | awk '{print $2}')
-                LOCATION=$(echo "${HEADER[*]}" | grep -i "Location" | awk '{print $2}')
 
                 if [ ! -z "$BYTES" ]; then
                     info "Found a \"${BYTES}\" bytes large file at address \"${URL}\" last modifed \"${MODIFIED}\""
-                    # Add to the array
-                    FILE=("$URL" "$MODIFIED" "$BYTES" "$DST")
-                    FILELIST+=($FILE)
-                
-                # Sometimes the file is located on another domain
-                elif [ ! -z "$LOCATION" ]; then
-                    HEADER=$(curl -sI "$LOCATION")
-                    BYTES=$(echo "${HEADER[*]}" | grep -i "Content-Length" | awk '{print $2}')
-                    MODIFIED=$(echo "${HEADER[*]}" | grep -i "Last-Modified" | awk '{print $2}')
-
-                    warning "Found a \"${BYTES}\" bytes large file on another domain \"${URL}\" last modifed \"${MODIFIED}\""
                     # Add to the array
                     FILE=("$URL" "$MODIFIED" "$BYTES" "$DST")
                     FILELIST+=($FILE)
