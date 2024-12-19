@@ -78,7 +78,7 @@ while [ "$#" -gt 0 ]; do
     case $1 in
         # Convert "--opt=value" to --opt "value"
         --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
-        -d|--debug) VERBOSE_ARG=1; info_stdout "Debug Mode Activated";;
+        -d|--debug) DEBUG_ARG=1; info_stdout "Debug Mode Activated";;
         -s|--stdout) STDOUT=1; info_stdout "Standard Output Activated";;
         -v|--verbose) VERBOSE_ARG=1; info_stdout "Verbose Mode Activated";;
         -h|--help) usage; exit 0;;
@@ -185,11 +185,13 @@ get_httpfilelist() {
     # Extract all root items to exlude
     for INDEX in "${!EXCLUDES[@]}"
     do
-        if [ "${EXCLUDE[$INDEX]}" =~ ^/ ]; then
+        if [ "${EXCLUDE[$INDEX]:0:1}" == "/" ]; then
             ROOTEXCLUDE+=("${EXCLUDE[$INDEX]:1}")
             unset EXCLUDES[$INDEX]
         fi
     done
+    debug "Current Excludelist: ${EXCLUDES[*]}"
+    debug "Current Excludelist (only this run): ${ROOTEXCLUDE[*]}"
 
     # Get all the links on that page
     info "Begin scraping paths from \"$BASEURL\"..."
@@ -200,7 +202,7 @@ get_httpfilelist() {
         DST="${LOCALPATH}$HREF"
 
         # Check if part of exclude list
-        if [ "${EXCLUDES[@]}" =~ "$HREF" ] || [ "${ROOTEXCLUDE[@]}" =~ "$HREF" ]; then
+        if [[ "${EXCLUDES[@]}" =~ "$HREF" ]] || [[ "${ROOTEXCLUDE[@]}" =~ "$HREF" ]]; then
             debug "The path \"${HREF}\" is part of the exclude"
             continue
         fi
@@ -372,12 +374,12 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
     fi
 
     # Generate the version exclude list, assumes that the versions are organized at root
-    if [ $MINMAJOR -lt 0 ]; then
+    if [ $MINMAJOR -gt 0 ]; then
         for i in $(seq 0 $((MINMAJOR -1)))
         do
             EXCLUDELIST+=("/$i" "$i.*")
         done
-        if [ $MINMINOR -lt 0 ]; then
+        if [ $MINMINOR -gt 0 ]; then
             for i in $(seq 0 $((MINMINOR -1)))
             do
                 EXCLUDELIST+=("/$MINMAJOR.$i")
