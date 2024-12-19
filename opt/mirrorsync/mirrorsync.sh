@@ -164,17 +164,21 @@ print_header_updatelog() {
 # With the ending slash
 get_httpfilelist() {
     FILELIST=()
+    BASEURL=$1
     # Get all the links on that page
-    for HREF in $(curl -s "$@" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
+    for HREF in $(curl -s "$BASEURL" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
         # Constructs the new url, assuming relative paths at remote
-        URL="${@}$HREF"
+        URL="${BASEURL}$HREF"
 
-        # Check if the href ends with slash, if it does it contious bellow that
-        if [ "${HREF: -1:1}" == $'/' ]; then
+        # TODO. Exclude list
+
+        # Check if the href ends with slash and not parent
+        if [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
             # Call recursivly until no more directories are found
             FILELIST+=$(get_httpfilelist "$URL")
-        else
+        # As long as it is not a parent path, assume as file
+        elif [ "${HREF: -2:2}" != $"./" ]; then
             BYTES=""
             MODIFIED=""
             # Verify that URL exists
@@ -184,12 +188,15 @@ get_httpfilelist() {
                 BYTES=$(echo $HEADER | grep -i "Content-Length" | awk '{print $2}')
                 MODIFIED=$(echo $HEADER | grep -i "Last-Modified" | awk '{print $2}')
                 
+                info "Found a \"${BYTES}\" byte large file at remote \"${URL}\" last modifed at \"${MODIFIED}\""
                 # Add to the array
                 FILE=("$URL" "$MODIFIED" "$BYTES")
                 FILELIST+=($FILE)
             else
                 info "Invalid URL constructed at remote: $URL"
             fi
+        else
+            info "Ignoring parent path \"${HREF}\" at remote: $BASEURL"
         fi
     done
     echo "${FILELIST[*]}"
