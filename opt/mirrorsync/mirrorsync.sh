@@ -159,13 +159,40 @@ print_header_updatelog() {
     printf "Files transfered: \n\n" >> "$6" 2>&1
 }
 
+# This is a recursive function that will parse through a website using listed items
+# Usage: get_httpfilelist "http://example.com/pub/repo/" 
+# With the ending slash
 get_httpfilelist() {
+    FILELIST=()
     # Get all the links on that page
-    for LINK in $(curl -s "$@" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
+    for HREF in $(curl -s "$@" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
-        
-        echo "$FILE"
+        # Constructs the new url, assuming relative paths at remote
+        URL="${@}$HREF"
+
+        # Check if the href ends with slash, if it does it contious bellow that
+        if [ "${HREF: -1:1}" == $'/' ]; then
+            # Call recursivly until no more directories are found
+            FILELIST+=$(get_httpfilelist "$URL")
+        else
+            BYTES=""
+            MODIFIED=""
+            # Verify that URL exists
+            if curl -ivs "$URL" 2>&1; then
+                # Extract content information from header response
+                HEADER=$(curl -sI "$URL")
+                BYTES=$(echo $HEADER | grep -i "Content-Length" | awk '{print $2}')
+                MODIFIED=$(echo $HEADER | grep -i "Last-Modified" | awk '{print $2}')
+                
+                # Add to the array
+                FILE=("$URL" "$MODIFIED" "$BYTES")
+                FILELIST+=($FILE)
+            else
+                info "Invalid URL constructed at remote: $URL"
+            fi
+        fi
     done
+    echo "${FILELIST[*]}"
 }
 
 # Main script
@@ -176,7 +203,7 @@ log "Synchronization process starting..."
 
 for FILE in "${REPOCONFIGS[@]}"
 do
-    printf "[%(%F %T)T] Info: Now working on repository defined at: %s\n" -1 "$FILE" >> "$LOGFILE" 2>&1
+    info "Now working on repository defined at: $FILE"
 
     LOCALDIR=""
     FILELISTFILE=""
@@ -345,7 +372,8 @@ update this mirror continuing with the next"
                 echo "$FILE"
             done
 
-
+            TEST=$(get_httpfilelist "${SRC}/")
+            echo "Recursive filelist: ${TEST[*]}"
 
             # Set variables for the run
             OPTS=(-mpEk --no-parent --convert-links --random-wait robots=off --reject="$(tr '\n' ',' < $EXCLUDEFILE)")
