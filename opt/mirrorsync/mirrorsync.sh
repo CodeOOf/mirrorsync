@@ -154,7 +154,7 @@ print_header_updatelog() {
     printf "# Destination: %s\n" "$3" >> "$6" 2>&1
     printf "# Using the following %s options for this run:\n" "$1" >> "$6" 2>&1
     printf "#   %s\n" "$7" >> "$6" 2>&1
-    printf "# This transfer will use: %i of %i current available.\n" "$4" "$5" >> "$6" 2>&1
+    printf "# This transfer will use: %sB of %sB current available.\n" "$4" "$5" >> "$6" 2>&1
     printf "---\n" >> "$6" 2>&1
     printf "Files transfered: \n\n" >> "$6" 2>&1
 }
@@ -197,20 +197,21 @@ get_httpfilelist() {
                 HEADER=$(curl -sI "$URL")
 
                 # Check if location exists first so that we extract information from the file source
-                LOCATION=$(echo "${HEADER[*]}" | grep -i "Location" | awk '{print $2}')
-                if [ ! -z "$Location" ]; then
-                    warning "Found a file at another domain \"${LOCATION}\""
+                LOCATION=$(echo "${HEADER[*]}" | grep -i "Location" | awk '{print $2}' | sed -z 's/[[:space:]]*$//')
+                if [ ! -z "$LOCATION" ]; then
+                    warning "Found file at another domain \"${LOCATION}\" for \"${DST}\""
                     HEADER=$(curl -sI "$LOCATION")
                     URL=$LOCATION
                 fi
 
                 # Extract file information
                 BYTES=$(echo "${HEADER[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
-                MODIFIED=$(echo "${HEADER[*]}" | grep -i "Last-Modified" | awk '{print $2}')
+                MODIFIED_STR=$(echo "${HEADER[*]}" | grep -i "Last-Modified"  | awk -v 'IGNORECASE=1' -F'Last-Modified:' '{print $2}')
+                MODIFIED=$(date -d $MODIFIED_STR '+%Y-%m-%d %H:%M:%S')
 
                 if [ ! -z "$BYTES" ] && [ $BYTES -gt 0 ]; then
                     FILESIZE=$(echo $BYTES | numfmt --to=iec-i)
-                    info "Added a \"${FILESIZE}\" bytes large file from \"${URL}\" that was last modifed \"${MODIFIED}\" to the list"
+                    info "Added a file of size ${FILESIZE}B from \"${URL}\" to the list, it was last modifed \"${MODIFIED}\""
                     # Add to the array
                     FILE=("$URL" "$MODIFIED" "$BYTES" "$DST")
                     FILELIST+=($FILE)
@@ -294,7 +295,7 @@ do
         esac
         
         # Make a connection test against the url on that port to validate connectivity
-        DOMAIN=$(echo $REMOTE | awk -F[/:] '{print $4}')
+        DOMAIN=$(echo $REMOTE | awk -F[/:] '{print $4}' | sed -z 's/[[:space:]]*$//')
         (echo > /dev/tcp/${DOMAIN}/${PORT}) &>/dev/null
         if [ $? -eq 0 ]; then
             info "Connection valid for \"${REMOTE}\""
@@ -380,10 +381,10 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
 
             # Convert bytes into human readable
             TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
-            info "This synchronization will require $TRANSFERSIZE on local storage"
+            info "This synchronization will require ${TRANSFERSIZE}B on local storage"
                 
             if [ $TRANSFERBYTES -gt $AVAILABLEBYTES ]; then
-                error "Not enough space on disk! This transfer needs $TRANSFERSIZE of $AVAILABLESIZE available. Cannot 
+                error "Not enough space on disk! This transfer needs ${TRANSFERSIZE}B of ${AVAILABLESIZE}B available. Cannot 
 update this mirror continuing with the next"
                 continue
             fi
@@ -410,10 +411,10 @@ update this mirror continuing with the next"
             REMOTE_REPOBYTES=$(wget "${OPTS[@]}" --spider  "${SRC}/" | grep -i "Length" | gawk '{sum+=$2}END{print sum}')
             TRANSFERBYTES=$(expr $REMOTE_REPOBYTES - $REPOBYTES)
             TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
-            info "This synchronization will require $TRANSFERSIZE on local storage"
+            info "This synchronization will require ${TRANSFERSIZE}B on local storage"
 
             if [ $TRANSFERBYTES -gt $AVAILABLEBYTES ]; then
-                error "Not enough space on disk! This transfer needs $TRANSFERSIZE of $AVAILABLESIZE available. Cannot 
+                error "Not enough space on disk! This transfer needs ${TRANSFERSIZE}B of ${AVAILABLESIZE}B available. Cannot 
 update this mirror continuing with the next"
                 continue
             fi
