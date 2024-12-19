@@ -22,7 +22,7 @@ RSYNC_PORT=873
 STDOUT=0
 
 # Log functions for standard output
-log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
+log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" 2>&1; }
 info_stdout() { log_stdout "$*" >&2; }
 warning_stdout() { log_stdout "Warning: $*" >&2; }
 error_stdout() { log_stdout "Error: $*" >&2; }
@@ -201,14 +201,16 @@ get_httpfilelist() {
                 if [ ! -z "$Location" ]; then
                     warning "Found a file at another domain \"${LOCATION}\""
                     HEADER=$(curl -sI "$LOCATION")
+                    URL=$LOCATION
                 fi
 
                 # Extract file information
-                BYTES=$(echo "${HEADER[*]}" | grep -i "Content-Length" | awk '{print $2}')
+                BYTES=$(echo "${HEADER[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
                 MODIFIED=$(echo "${HEADER[*]}" | grep -i "Last-Modified" | awk '{print $2}')
 
-                if [ ! -z "$BYTES" ]; then
-                    info "Added a \"${BYTES}\" bytes large file from \"${URL}\" that was last modifed \"${MODIFIED}\" to the list"
+                if [ ! -z "$BYTES" ] && [ $BYTES -gt 0 ]; then
+                    FILESIZE=$(echo $BYTES | numfmt --to=iec-i)
+                    info "Added a \"${FILESIZE}\" bytes large file from \"${URL}\" that was last modifed \"${MODIFIED}\" to the list"
                     # Add to the array
                     FILE=("$URL" "$MODIFIED" "$BYTES" "$DST")
                     FILELIST+=($FILE)
@@ -361,9 +363,9 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
     done
 
     # Current disk spaces in bytes
-    AVAILABLEBYTES=$(df -B1 $DST | awk 'NR>1{print $4}')
+    AVAILABLEBYTES=$(df -B1 $DST | awk 'NR>1{print $4}' | tr -cd '[:digit:].')
     AVAILABLESIZE=$(echo $AVAILABLEBYTES | numfmt --to=iec-i)
-    REPOBYTES=$(du -sB1 "${DST}/" | awk 'NR>0{print $1}')
+    REPOBYTES=$(du -sB1 "${DST}/" | awk 'NR>0{print $1}' | tr -cd '[:digit:].')
 
     # Depending on what protocol the url has the approch on syncronizing the repo is different
     case $PORT in
