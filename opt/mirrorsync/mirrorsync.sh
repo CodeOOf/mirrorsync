@@ -31,7 +31,7 @@ argerror_stdout() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
 
 # Log functions when logfile is set
 log() { 
-    printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" >&2
+    printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" 2>&1
     if [ $STDOUT -eq 1 ] || [ $VERBOSE_ARG -eq 1 ]; then log_stdout "$*" >&2; fi
 }
 
@@ -180,7 +180,7 @@ get_httpfilelist() {
         # Check if the href ends with slash and not parent
         if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
             # Call recursivly until no more directories are found
-            RECURSIVECALL=$(get_httpfilelist "$URL" "$DST")
+            RECURSIVECALL=$(get_httpfilelist "$URL" "$DST" | tr -d '\0')
 
             # Only add to collection if array is populated
             IS_ARRAY=$(declare -p RECURSIVECALL | grep '^declare -a')
