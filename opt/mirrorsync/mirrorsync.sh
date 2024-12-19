@@ -194,7 +194,7 @@ get_httpfilelist() {
     debug "Current Excludelist (only this run): ${ROOTEXCLUDE[*]}"
 
     # Get all the links on that page
-    info "Begin scraping paths from \"$BASEURL\"..."
+    debug "Begin scraping paths from \"$BASEURL\"..."
     for HREF in $(curl -s "$BASEURL" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
         # Constructs the new url, assuming relative paths at remote
@@ -229,7 +229,7 @@ get_httpfilelist() {
                 # Check if location exists first so that we extract information from the file source
                 LOCATION=$(echo "${HEADER[*]}" | grep -i "Location" | awk '{print $2}' | sed -z 's/[[:space:]]*$//')
                 if [ ! -z "$LOCATION" ]; then
-                    warning "Found file at another domain \"${LOCATION}\" for \"${DST}\""
+                    info "Found file at another domain \"${LOCATION}\" for \"${DST}\""
                     HEADER=$(curl -sI "$LOCATION")
                     URL=$LOCATION
                 fi
@@ -374,6 +374,7 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
     fi
 
     # Generate the version exclude list, assumes that the versions are organized at root
+    debug "Current exclude versions is up to \"v${MINMAJOR}.${MINMINOR}\""
     if [ $MINMAJOR -gt 0 ]; then
         for i in $(seq 0 $((MINMAJOR -1)))
         do
