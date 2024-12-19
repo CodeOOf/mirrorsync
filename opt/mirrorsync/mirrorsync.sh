@@ -31,7 +31,7 @@ argerror_stdout() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
 
 # Log functions when logfile is set
 log() { 
-    printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" 2>&1
+    printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" >&2
     if [ $STDOUT -eq 1 ] || [ $VERBOSE_ARG -eq 1 ]; then log_stdout "$*" >&2; fi
 }
 
@@ -129,7 +129,7 @@ fi
 
 # Check for existing lockfile to avoid multiple simultaneously running syncs
 # If lockfile exists but process is dead continue anyway
-if [ -e "$LOCKFILE" ] && ! kill -0 "$(< "$LOCKFILE")" 2>/dev/null; then
+if [ -e "$LOCKFILE" ] && ! kill -0 "$(< "$LOCKFILE")" 2>&1; then
     warning "lockfile exists but process dead, continuing..."
     rm -f "$LOCKFILE"
 elif [ -e "$LOCKFILE" ]; then
@@ -169,7 +169,7 @@ get_httpfilelist() {
 
     # Get all the links on that page
     info "Begin scraping paths from \"$BASEURL\"..."
-    for HREF in $(curl -s "$BASEURL" 2>&1 | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
+    for HREF in $(curl -s "$BASEURL" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
         # Constructs the new url, assuming relative paths at remote
         URL="${BASEURL}$HREF"
@@ -180,10 +180,10 @@ get_httpfilelist() {
         # Check if the href ends with slash and not parent
         if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
             # Call recursivly until no more directories are found
-            RECURSIVECALL=$(get_httpfilelist "$URL" "$DST" 2>&1)
+            RECURSIVECALL=$(get_httpfilelist "$URL" "$DST")
 
             # Only add to collection if array is populated
-            IS_ARRAY=$(declare -p RECURSIVECALL 2>&1 | grep '^declare -a')
+            IS_ARRAY=$(declare -p RECURSIVECALL | grep '^declare -a')
             if [ -z "$IS_ARRAY" ]; then
                 FILELIST+=$RECURSIVECALL
             fi
@@ -194,7 +194,7 @@ get_httpfilelist() {
             # Verify that URL exists
             if curl -ivs "$URL" 2>&1; then
                 # Extract content information from header response
-                HEADER=$(curl -sI "$URL" 2>&1)
+                HEADER=$(curl -sI "$URL")
 
                 # Check if location exists first so that we extract information from the file source
                 LOCATION=$(echo "${HEADER[*]}" | grep -i "Location" | awk '{print $2}')
@@ -258,7 +258,7 @@ do
         continue
     elif [ ! -d "$DST" ]; then
         warning "A local path for \"${LOCALDIR}\" does not exists, will create one"
-        if [ ! mkdir "$DST" 2>/dev/null ]; then
+        if [ ! mkdir "$DST" 2>&1 ]; then
             error "The path \"${DST}\" could not be created, cannot update this mirror continuing with the next"
             continue
         fi
@@ -316,7 +316,7 @@ do
     if [ -z "$FILELISTFILE" ]; then
         info "The variable \"FILELISTFILE\" is empty or not defined for \"${FILE}\""
     elif [ "$PORT" == "$RSYNC_PORT" ]; then
-        CHECKRESULT=$(rsync --no-motd --dry-run --out-format="%n" "${SRC}/$FILELISTFILE" "${DST}/$FILELISTFILE" 2>&1)
+        CHECKRESULT=$(rsync --no-motd --dry-run --out-format="%n" "${SRC}/$FILELISTFILE" "${DST}/$FILELISTFILE")
     else
         warning "The protocol used with \"${SRC}\" has not yet been implemented. Move another protocol higher up in 
 list of remotes to solve this at the moment. Cannot update this mirror continuing with the next"
@@ -397,7 +397,7 @@ update this mirror continuing with the next"
             ;;
         $HTTP_PORT|$HTTPS_PORT)
 
-            TEST=$(get_httpfilelist "${SRC}/" "${DST}/" 2>&1)
+            TEST=$(get_httpfilelist "${SRC}/" "${DST}/")
             echo "Recursive filelist: ${TEST[*]}"
 
             # Set variables for the run
@@ -405,7 +405,7 @@ update this mirror continuing with the next"
             UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_httpupdate.log"
 
             # First validate that there is enough space on the disk
-            REMOTE_REPOBYTES=$(wget "${OPTS[@]}" --spider  "${SRC}/" 2>&1 | grep -i "Length" | gawk '{sum+=$2}END{print sum}')
+            REMOTE_REPOBYTES=$(wget "${OPTS[@]}" --spider  "${SRC}/" | grep -i "Length" | gawk '{sum+=$2}END{print sum}')
             TRANSFERBYTES=$(expr $REMOTE_REPOBYTES - $REPOBYTES)
             TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
             info "This synchronization will require $TRANSFERSIZE on local storage"
