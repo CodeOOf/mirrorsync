@@ -13,17 +13,20 @@ REPOCONFIG_DIR="/etc/mirrorsync/repos.conf.d"
 LOCKFILE="$0.lockfile"
 LOGFILE=""
 VERBOSE=""
-VERBOSE_ARG=0
+
 
 HTTP_PORT=80
 HTTPS_PORT=443
 RSYNC_PORT=873
 
 STDOUT=0
+VERBOSE_ARG=0
+DEBUG_ARG=0
 
 # Log functions for standard output
 log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
 info_stdout() { log_stdout "$*" >&2; }
+debug_stdout() { log_stdout "Debug: $*" >&2; }
 warning_stdout() { log_stdout "Warning: $*" >&2; }
 error_stdout() { log_stdout "Error: $*" >&2; }
 fatal_stdout() { error_stdout "$*, exiting..."; exit 1; }
@@ -39,6 +42,11 @@ info() {
     if [ ! -z "$VERBOSE" ] && [ $VERBOSE -eq 1 ]; then log "$*" >&2; fi
     if [ $VERBOSE_ARG -eq 1 ]; then log_stdout "$*" >&2; fi
 }
+
+debug() { 
+    if [ $DEBUG_ARG -eq 1 ]; then debug_stdout "$*" >&2; fi
+}
+
 warning() { log "Warning: $*" >&2; }
 error() { log "Error: $*" >&2; }
 fatal() { error "$*, exiting..."; exit 1; }
@@ -53,11 +61,14 @@ Arguments:
   -h, --help
     Display this usage message and exit.
 
+  -d, --debug
+    Activate Debug Mode, provides a very detailed output to the system console.
+
   -s, --stdout
     Activate Standard Output, streams every output to the system console.
 
   -v, --verbose
-    Activate Verbose mode, provides more a more detailed output to the system console.
+    Activate Verbose Mode, provides more a more detailed output to the system console.
 EOF
 }
 
@@ -67,6 +78,7 @@ while [ "$#" -gt 0 ]; do
     case $1 in
         # Convert "--opt=value" to --opt "value"
         --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
+        -d|--debug) VERBOSE_ARG=1; info_stdout "Debug Mode Activated";;
         -s|--stdout) STDOUT=1; info_stdout "Standard Output Activated";;
         -v|--verbose) VERBOSE_ARG=1; info_stdout "Verbose Mode Activated";;
         -h|--help) usage; exit 0;;
@@ -160,12 +172,24 @@ print_header_updatelog() {
 }
 
 # This is a recursive function that will parse through a website using listed items
-# Usage: get_httpfilelist "http://example.com/pub/repo/" "/my/local/destination/"
+# Usage: get_httpfilelist "http://example.com/pub/repo/" "/my/local/destination/" "(EXCLUDE/,*FILES,and~,/dirs)"
 # With the ending slash on paths and urls
+# excludes starting with "/" only excludes from root
 get_httpfilelist() {
     FILELIST=()
     BASEURL=$1
     LOCALPATH=$2
+    EXCLUDES=($3)
+    ROOTEXCLUDE=()
+
+    # Extract all root items to exlude
+    for INDEX in "${!EXCLUDES[@]}"
+    do
+        if [ "${EXCLUDE[$INDEX]}" =~ ^/ ]; then
+            ROOTEXCLUDE+=("${EXCLUDE[$INDEX]:1}")
+            unset EXCLUDES[$INDEX]
+        fi
+    done
 
     # Get all the links on that page
     info "Begin scraping paths from \"$BASEURL\"..."
@@ -175,12 +199,16 @@ get_httpfilelist() {
         URL="${BASEURL}$HREF"
         DST="${LOCALPATH}$HREF"
 
-        # TODO. Exclude list
+        # Check if part of exclude list
+        if [ "${EXCLUDES[@]}" =~ "$HREF" ] || [ "${ROOTEXCLUDE[@]}" =~ "$HREF" ]; then
+            debug "The path \"${HREF}\" is part of the exclude"
+            continue
+        fi
 
         # Check if the href ends with slash and not parent
         if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
             # Call recursivly until no more directories are found
-            RECURSIVECALL=$(get_httpfilelist "$URL" "$DST" | tr -d '\0')
+            RECURSIVECALL=$(get_httpfilelist "$URL" "$DST" "${EXCLUDES[*]}" | tr -d '\0')
 
             # Only add to collection if array is populated
             IS_ARRAY=$(declare -p RECURSIVECALL | grep '^declare -a')
@@ -211,18 +239,18 @@ get_httpfilelist() {
 
                 if [ ! -z "$BYTES" ] && [ $BYTES -gt 0 ]; then
                     FILESIZE=$(echo $BYTES | numfmt --to=iec-i)
-                    info "Added a file of size ${FILESIZE}B from \"${URL}\" to the list, it was last modifed \"${MODIFIED}\""
+                    debug "Added a file of size ${FILESIZE}B from \"${URL}\" to the list, it was last modifed \"${MODIFIED}\""
                     # Add to the array
                     FILE=("$URL" "$MODIFIED" "$BYTES" "$DST")
                     FILELIST+=($FILE)
                 else
-                    info "Not a file \"$URL\", ignoring path"
+                    debug "Not a file \"$URL\", ignoring path"
                 fi
             else
                 info "Invalid URL constructed at remote: $URL"
             fi
         else
-            info "Ignoring parent path \"${HREF}\" at remote: $BASEURL"
+            debug "Ignoring parent path \"${HREF}\" at remote: $BASEURL"
         fi
     done
     echo "${FILELIST[*]}"
@@ -400,7 +428,7 @@ update this mirror continuing with the next"
             ;;
         $HTTP_PORT|$HTTPS_PORT)
 
-            TEST=$(get_httpfilelist "${SRC}/" "${DST}/")
+            TEST=$(get_httpfilelist "${SRC}/" "${DST}/" "${EXCLUDELIST[@]}")
             echo "Recursive filelist: ${TEST[*]}"
 
             # Set variables for the run
