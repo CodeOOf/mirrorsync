@@ -22,7 +22,7 @@ RSYNC_PORT=873
 STDOUT=0
 
 # Log functions for standard output
-log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" 2>&1; }
+log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
 info_stdout() { log_stdout "$*" >&2; }
 warning_stdout() { log_stdout "Warning: $*" >&2; }
 error_stdout() { log_stdout "Error: $*" >&2; }
@@ -207,7 +207,7 @@ get_httpfilelist() {
                 # Extract file information
                 BYTES=$(echo "${HEADER[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
                 MODIFIED_STR=$(echo "${HEADER[*]}" | grep -i "Last-Modified"  | awk -v 'IGNORECASE=1' -F'Last-Modified:' '{print $2}')
-                MODIFIED=$(date -d $MODIFIED_STR '+%Y-%m-%d %H:%M:%S')
+                MODIFIED=$(date -d "$MODIFIED_STR" "+%Y-%m-%d %H:%M:%S")
 
                 if [ ! -z "$BYTES" ] && [ $BYTES -gt 0 ]; then
                     FILESIZE=$(echo $BYTES | numfmt --to=iec-i)
