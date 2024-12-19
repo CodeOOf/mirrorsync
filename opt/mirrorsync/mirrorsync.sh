@@ -165,7 +165,9 @@ print_header_updatelog() {
 get_httpfilelist() {
     FILELIST=()
     BASEURL=$1
+
     # Get all the links on that page
+    info "Begin scraping paths from \"$BASEURL\"..."
     for HREF in $(curl -s "$BASEURL" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
         # Constructs the new url, assuming relative paths at remote
@@ -174,11 +176,11 @@ get_httpfilelist() {
         # TODO. Exclude list
 
         # Check if the href ends with slash and not parent
-        if [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
+        if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
             # Call recursivly until no more directories are found
             FILELIST+=$(get_httpfilelist "$URL")
         # As long as it is not a parent path, assume as file
-        elif [ "${HREF: -2:2}" != $"./" ]; then
+        elif [ "${HREF: -1:1}" != $'/' ]; then
             BYTES=""
             MODIFIED=""
             # Verify that URL exists
