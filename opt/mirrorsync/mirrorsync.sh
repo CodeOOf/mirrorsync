@@ -171,11 +171,25 @@ print_header_updatelog() {
     printf "Files transfered: \n\n" >> "$6" 2>&1
 }
 
+# Function to validate if path/file is matched in a array of rules
+# Usage: has_exclude "value_to_test" "array of values to validate"
+has_exclude() {
+    EXCLUDES=($2)
+    FOUND_MATCH=0
+
+    for EXCLUDE in "${EXCLUDES[@]}"
+    do
+        if [ "$1" == $EXCLUDE ]; then FOUND_MATCH=1; break; fi
+    done
+
+    echo $FOUND_MATCH
+}
+
 # This is a recursive function that will parse through a website using listed items
-# Usage: get_httpfilelist "http://example.com/pub/repo/" "/my/local/destination/" "(EXCLUDE/,*FILES,and~,/dirs)"
+# Usage: httpsync "http://example.com/pub/repo/" "/my/local/destination/" "(EXCLUDE/,*FILES,and~,/dirs)"
 # With the ending slash on paths and urls
 # excludes starting with "/" only excludes from root
-get_httpfilelist() {
+httpsync() {
     FILELIST=()
     BASEURL=$1
     LOCALPATH=$2
@@ -196,27 +210,29 @@ get_httpfilelist() {
     debug "Begin scraping paths from \"$BASEURL\""
     for HREF in $(curl -s "$BASEURL" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
+        debug "Now working on relative path: $HREF"
         # Constructs the new url, assuming relative paths at remote
         URL="${BASEURL}$HREF"
         DST="${LOCALPATH}$HREF"
 
         # Check if part of exclude list
-        if [[ "${EXCLUDES[@]}" =~ "$HREF" ]] || [[ "${ROOTEXCLUDE[@]}" =~ "$HREF" ]]; then
+        if [ has_exclude "$HREF" "${EXCLUDES[*]}" 2>&1 ] || [ has_exclude "$HREF" "${ROOTEXCLUDE[*]}" 2>&1 ]; then
             debug "The path \"${HREF}\" is part of the exclude"
             continue
         fi
 
-        # Check if the href ends with slash and not parent
-        if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
+        # Check if the href ends with slash and not parent or begins with slash
+        if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && 
+        [ "${HREF: -2:2}" != $"./" ] && [ "${HREF: 0:1}" != $'/' ]; then
             # Call recursivly until no more directories are found
-            RECURSIVECALL=$(get_httpfilelist "$URL" "$DST" "${EXCLUDES[*]}" | tr -d '\0')
+            RECURSIVECALL=$(httpsync "$URL" "$DST" "${EXCLUDES[*]}" | tr -d '\0')
 
             # Only add to collection if array is populated
             IS_ARRAY=$(declare -p RECURSIVECALL | grep '^declare -a')
             if [ -z "$IS_ARRAY" ]; then
                 FILELIST+=$RECURSIVECALL
             fi
-        # As long as it is not a parent path, assume as file
+        # As long as it is not ending slash, assume as file
         elif [ "${HREF: -1:1}" != $'/' ]; then
             BYTES=""
             MODIFIED=""
@@ -432,7 +448,7 @@ Cannot update this mirror continuing with the next"
             ;;
         $HTTP_PORT|$HTTPS_PORT)
 
-            TEST=$(get_httpfilelist "${SRC}/" "${DST}/" "${EXCLUDELIST[*]}")
+            TEST=$(httpsync "${SRC}/" "${DST}/" "${EXCLUDELIST[*]}")
             echo "Recursive filelist: ${TEST[*]}"
 
             # Set variables for the run

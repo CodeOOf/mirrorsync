@@ -22,7 +22,20 @@ fatal() { error "$*, exiting..."; exit 1; }
 MINMAJOR=40
 MINMINOR=10
 
-get_httpfilelist() {
+has_exclude() {
+    EXCLUDES=($2)
+    FOUND_MATCH=0
+
+    for EXCLUDE in "${EXCLUDES[@]}"
+    do
+        debug "Testing if \"${1}\" == \"${EXCLUDE}\""
+        if [ "$1" == $EXCLUDE ]; then FOUND_MATCH=1; debug "Yes match!"; break; fi
+    done
+
+    echo $FOUND_MATCH
+}
+
+httpsync() {
     FILELIST=()
     BASEURL=$1
     LOCALPATH=$2
@@ -43,27 +56,29 @@ get_httpfilelist() {
     debug "Begin scraping paths from \"$BASEURL\""
     for HREF in $(curl -s "$BASEURL" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
+        debug "Now working on relative path: $HREF"
         # Constructs the new url, assuming relative paths at remote
         URL="${BASEURL}$HREF"
         DST="${LOCALPATH}$HREF"
 
         # Check if part of exclude list
-        if [[ "${EXCLUDES[@]}" =~ "$HREF" ]] || [[ "${ROOTEXCLUDE[@]}" =~ "$HREF" ]]; then
+        if [ has_exclude "$HREF" "${EXCLUDES[*]}" 2>&1 ] || [ has_exclude "$HREF" "${ROOTEXCLUDE[*]}" 2>&1 ]; then
             debug "The path \"${HREF}\" is part of the exclude"
             continue
         fi
 
-        # Check if the href ends with slash and not parent
-        if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && [ "${HREF: -2:2}" != $"./" ]; then
+        # Check if the href ends with slash and not parent or begins with slash
+        if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && 
+        [ "${HREF: -2:2}" != $"./" ] && [ "${HREF: 0:1}" != $'/' ]; then
             # Call recursivly until no more directories are found
-            RECURSIVECALL=$(get_httpfilelist "$URL" "$DST" "${EXCLUDES[*]}" | tr -d '\0')
+            RECURSIVECALL=$(httpsync "$URL" "$DST" "${EXCLUDES[*]}" | tr -d '\0')
 
             # Only add to collection if array is populated
             IS_ARRAY=$(declare -p RECURSIVECALL | grep '^declare -a')
             if [ -z "$IS_ARRAY" ]; then
                 FILELIST+=$RECURSIVECALL
             fi
-        # As long as it is not a parent path, assume as file
+        # As long as it is not ending slash, assume as file
         elif [ "${HREF: -1:1}" != $'/' ]; then
             BYTES=""
             MODIFIED=""
