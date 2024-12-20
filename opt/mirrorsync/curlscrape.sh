@@ -22,35 +22,36 @@ fatal() { error "$*, exiting..."; exit 1; }
 MINMAJOR=40
 MINMINOR=10
 
-has_exclude() {
-    EXCLUDES=($2)
-    FOUND_MATCH=0
+arraymatch() {
+    local EXCLUDES=($2)
 
     for EXCLUDE in "${EXCLUDES[@]}"
     do
-        debug "Testing if \"${1}\" == \"${EXCLUDE}\""
-        if [ "$1" == $EXCLUDE ]; then FOUND_MATCH=1; debug "Yes match!"; break; fi
+        if [ "$1" == $EXCLUDE ] || [ "${1:0:-1}" == $EXCLUDE ]; then 
+            debug "Found match for \"${1}\" == \"${EXCLUDE}\" to exclude"; 
+            return 0; 
+        fi
     done
 
-    echo $FOUND_MATCH
+    return 1
 }
 
 httpsync() {
-    FILELIST=()
-    BASEURL=$1
-    LOCALPATH=$2
-    EXCLUDES=($3)
-    ROOTEXCLUDE=()
+    local FILELIST=()
+    local BASEURL=$1
+    local LOCALPATH=$2
+    local EXCLUDES=($3)
+    local ROOTEXCLUDES=()
 
     # Extract all root items to exlude
     for INDEX in "${!EXCLUDES[@]}"
     do
         if [ "${EXCLUDES[$INDEX]:0:1}" == "/" ]; then
-            ROOTEXCLUDE+=("${EXCLUDES[$INDEX]:1}")
+            ROOTEXCLUDES+=("${EXCLUDES[$INDEX]:1}")
             unset EXCLUDES[$INDEX]
         fi
     done
-    debug "Excludelist only for \"${BASEURL}\": ${ROOTEXCLUDE[*]}"
+    debug "Excludelist only for \"${BASEURL}\": ${ROOTEXCLUDES[*]}"
 
     # Get all the links on that page
     debug "Begin scraping paths from \"$BASEURL\""
@@ -62,7 +63,7 @@ httpsync() {
         DST="${LOCALPATH}$HREF"
 
         # Check if part of exclude list
-        if [ has_exclude "$HREF" "${EXCLUDES[*]}" 2>&1 ] || [ has_exclude "$HREF" "${ROOTEXCLUDE[*]}" 2>&1 ]; then
+        if [ arraymatch "$HREF" "${EXCLUDES[*]}" ] || [ arraymatch "$HREF" "${ROOTEXCLUDES[*]}" ]; then
             debug "The path \"${HREF}\" is part of the exclude"
             continue
         fi
@@ -138,5 +139,5 @@ fi
 debug "Current generated excludelist is: ${EXCLUDELIST[*]}"
 
 
-TEST=$(get_httpfilelist "${@}/" "${DST}/" "${EXCLUDELIST[*]}")
+TEST=$(httpsync "${@}/" "${DST}/" "${EXCLUDELIST[*]}")
 echo "Recursive filelist: ${TEST[*]}"
