@@ -185,15 +185,15 @@ get_httpfilelist() {
     # Extract all root items to exlude
     for INDEX in "${!EXCLUDES[@]}"
     do
-        if [ "${EXCLUDE[$INDEX]:0:1}" == "/" ]; then
-            ROOTEXCLUDE+=("${EXCLUDE[$INDEX]:1}")
+        if [ "${EXCLUDES[$INDEX]:0:1}" == "/" ]; then
+            ROOTEXCLUDE+=("${EXCLUDES[$INDEX]:1}")
             unset EXCLUDES[$INDEX]
         fi
     done
     debug "Excludelist only for \"${BASEURL}\": ${ROOTEXCLUDE[*]}"
 
     # Get all the links on that page
-    debug "Begin scraping paths from \"$BASEURL\"..."
+    debug "Begin scraping paths from \"$BASEURL\""
     for HREF in $(curl -s "$BASEURL" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
         # Constructs the new url, assuming relative paths at remote
