@@ -27,7 +27,7 @@ arraymatch() {
 
     for EXCLUDE in "${EXCLUDES[@]}"
     do
-        if [ "$1" == $EXCLUDE ] || [ "${1:0:-1}" == $EXCLUDE ]; then 
+        if [[ "$1" == $EXCLUDE ]] || [[ "${1:0:-1}" == $EXCLUDE ]]; then 
             debug "Found match for \"${1}\" == \"${EXCLUDE}\" to exclude"; 
             return 0; 
         fi

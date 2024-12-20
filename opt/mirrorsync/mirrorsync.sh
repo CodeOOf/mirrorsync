@@ -155,7 +155,7 @@ print_header_updatelog() {
     # print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERSIZE" "$AVAILABLESIZE" "$UPDATELOGFILE" "${OPTS[*]}"
     
     # Get script version
-    VERSION=$(cat ${SCRIPTDIR}/.version)
+    local VERSION=$(cat ${SCRIPTDIR}/.version)
 
     # Print info to new updatelog
     printf "# Syncronization with %s using Mirrorsync by CodeOOf\n" "$1" >> "$6" 2>&1
@@ -171,18 +171,23 @@ print_header_updatelog() {
     printf "Files transfered: \n\n" >> "$6" 2>&1
 }
 
-# Function to validate if path/file is matched in a array of rules
-# Usage: has_exclude "value_to_test" "array of values to validate"
-has_exclude() {
-    EXCLUDES=($2)
-    FOUND_MATCH=0
+# Function to validate if value is matched in a array of queries
+# Usage: arraymatch "value_to_test" "array of values to validate"
+arraymatch() {
+    local QUERIES=($2)
+    local VALUE="$1"
 
-    for EXCLUDE in "${EXCLUDES[@]}"
+    if [ "${1:-1:1}" == "/" ]; then VALUE=${1:0:-1}; fi
+
+    for QUERY in "${QUERIES[@]}"
     do
-        if [ "$1" == $EXCLUDE ]; then FOUND_MATCH=1; break; fi
+        if [[ "$VALUE" == $QUERY ]] || [[ "${1:0:-1}" == $QUERY ]]; then 
+            debug "The value \"${1}\" matched query \"${QUERY}\""; 
+            return 0; 
+        fi
     done
 
-    echo $FOUND_MATCH
+    return 1
 }
 
 # This is a recursive function that will parse through a website using listed items
@@ -190,11 +195,11 @@ has_exclude() {
 # With the ending slash on paths and urls
 # excludes starting with "/" only excludes from root
 httpsync() {
-    FILELIST=()
-    BASEURL=$1
-    LOCALPATH=$2
-    EXCLUDES=($3)
-    ROOTEXCLUDE=()
+    local FILELIST=()
+    local BASEURL=$1
+    local LOCALPATH=$2
+    local EXCLUDES=($3)
+    local ROOTEXCLUDE=()
 
     # Extract all root items to exlude
     for INDEX in "${!EXCLUDES[@]}"
@@ -212,11 +217,11 @@ httpsync() {
     do 
         debug "Now working on relative path: $HREF"
         # Constructs the new url, assuming relative paths at remote
-        URL="${BASEURL}$HREF"
-        DST="${LOCALPATH}$HREF"
+        local URL="${BASEURL}$HREF"
+        local DST="${LOCALPATH}$HREF"
 
         # Check if part of exclude list
-        if [ has_exclude "$HREF" "${EXCLUDES[*]}" 2>&1 ] || [ has_exclude "$HREF" "${ROOTEXCLUDE[*]}" 2>&1 ]; then
+        if (arraymatch "$HREF" "${EXCLUDES[*]}") || (arraymatch "$HREF" "${ROOTEXCLUDE[*]}"); then
             debug "The path \"${HREF}\" is part of the exclude"
             continue
         fi
