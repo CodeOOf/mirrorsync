@@ -190,8 +190,7 @@ get_httpfilelist() {
             unset EXCLUDES[$INDEX]
         fi
     done
-    debug "Current Excludelist: ${EXCLUDES[*]}"
-    debug "Current Excludelist (only this run): ${ROOTEXCLUDE[*]}"
+    debug "Excludelist only for \"${BASEURL}\": ${ROOTEXCLUDE[*]}"
 
     # Get all the links on that page
     debug "Begin scraping paths from \"$BASEURL\"..."
@@ -378,7 +377,7 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
     if [ $MINMAJOR -gt 0 ]; then
         for i in $(seq 0 $((MINMAJOR -1)))
         do
-            EXCLUDELIST+=("/$i" "$i.*")
+            EXCLUDELIST+=("/$i" "/$i.*")
         done
         if [ $MINMINOR -gt 0 ]; then
             for i in $(seq 0 $((MINMINOR -1)))
