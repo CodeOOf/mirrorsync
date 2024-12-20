@@ -374,7 +374,7 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
     fi
 
     # Generate the version exclude list, assumes that the versions are organized at root
-    debug "Current exclude versions is up to \"v${MINMAJOR}.${MINMINOR}\""
+    debug "Current exclude versions is up to v${MINMAJOR}.${MINMINOR}"
     if [ $MINMAJOR -gt 0 ]; then
         for i in $(seq 0 $((MINMAJOR -1)))
         do
@@ -387,12 +387,14 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
             done
         fi
     fi
+    debug "Current generated excludelist is: ${EXCLUDELIST[*]}"
 
     # Write the new excludes into the excludefile
     for EXCLUDE in "${EXCLUDELIST[@]}"
     do
         printf "$EXCLUDE\n" >> $EXCLUDEFILE
     done
+    debug "Excludes added to the file \"${EXCLUDEFILE}\""
 
     # Current disk spaces in bytes
     AVAILABLEBYTES=$(df -B1 $DST | awk 'NR>1{print $4}' | tr -cd '[:digit:].')
@@ -415,8 +417,8 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
             info "This synchronization will require ${TRANSFERSIZE}B on local storage"
                 
             if [ $TRANSFERBYTES -gt $AVAILABLEBYTES ]; then
-                error "Not enough space on disk! This transfer needs ${TRANSFERSIZE}B of ${AVAILABLESIZE}B available. Cannot 
-update this mirror continuing with the next"
+                error "Not enough space on disk! This transfer needs ${TRANSFERSIZE}B of ${AVAILABLESIZE}B available. 
+Cannot update this mirror continuing with the next"
                 continue
             fi
 
@@ -431,7 +433,7 @@ update this mirror continuing with the next"
             ;;
         $HTTP_PORT|$HTTPS_PORT)
 
-            TEST=$(get_httpfilelist "${SRC}/" "${DST}/" "${EXCLUDELIST[@]}")
+            TEST=$(get_httpfilelist "${SRC}/" "${DST}/" "${EXCLUDELIST[*]}")
             echo "Recursive filelist: ${TEST[*]}"
 
             # Set variables for the run
@@ -445,8 +447,8 @@ update this mirror continuing with the next"
             info "This synchronization will require ${TRANSFERSIZE}B on local storage"
 
             if [ $TRANSFERBYTES -gt $AVAILABLEBYTES ]; then
-                error "Not enough space on disk! This transfer needs ${TRANSFERSIZE}B of ${AVAILABLESIZE}B available. Cannot 
-update this mirror continuing with the next"
+                error "Not enough space on disk! This transfer needs ${TRANSFERSIZE}B of ${AVAILABLESIZE}B available. 
+Cannot update this mirror continuing with the next"
                 continue
             fi
 
