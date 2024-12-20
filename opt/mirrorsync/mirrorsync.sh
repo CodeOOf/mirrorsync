@@ -190,7 +190,8 @@ arraymatch() {
     return 1
 }
 
-# This is a recursive function that will parse through a website using listed items
+# This is a recursive function that will parse through a website with listed items and compare with local
+# returning a list of itemes out of sync
 # Usage: httpsync "http://example.com/pub/repo/" "/my/local/destination/" "(EXCLUDE/,*FILES,and~,/dirs)"
 # With the ending slash on paths and urls
 # excludes starting with "/" only excludes from root
@@ -260,6 +261,8 @@ httpsync() {
                 MODIFIED=$(date -d "$MODIFIED_STR" "+%Y-%m-%d %H:%M:%S")
 
                 if [ ! -z "$BYTES" ] && [ $BYTES -gt 0 ]; then
+                    # TODO: Check if local file is out of sync with this.
+
                     FILESIZE=$(echo $BYTES | numfmt --to=iec-i)
                     debug "Added a file of size ${FILESIZE}B from \"${URL}\" to the list, it was last modifed \"${MODIFIED}\""
                     # Add to the array
@@ -452,6 +455,8 @@ Cannot update this mirror continuing with the next"
             info "Finished updating mirror \"${LOCALDIR}\", log found at \"${UPDATELOGFILE}\""
             ;;
         $HTTP_PORT|$HTTPS_PORT)
+
+            # TODO: First use httpsync to get a list of out of sync files
 
             TEST=$(httpsync "${SRC}/" "${DST}/" "${EXCLUDELIST[*]}")
             echo "Recursive filelist: ${TEST[*]}"
