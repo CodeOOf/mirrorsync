@@ -104,7 +104,7 @@ REPOCONFIGS=(${REPOCONFIGDIR}/*.conf)
 # Remove example config from list
 for index in "${!REPOCONFIGS[@]}"
 do
-    if [ "${REPOCONFIGS[$index]}" == "example.conf" ]; then
+    if [ "${REPOCONFIGS[$index]}" == "${REPOCONFIGDIR}/example.conf" ]; then
         unset REPOCONFIGS[$index]
     fi
 done
@@ -205,6 +205,8 @@ httpsync() {
     local localpath=$2
     local querylist=($3)
     local rootqueries=()
+    local localfiles=(${localpath}/*)
+    local filentry=()
 
     # Extract all root items to exlude
     for index in "${!querylist[@]}"
@@ -234,6 +236,14 @@ httpsync() {
         # Check if the href ends with slash and not parent or begins with slash
         if [ "${#href}" -gt 1 ] && [ "${href: -1:1}" == $'/' ]  && 
         [ "${href: -2:2}" != $"./" ] && [ "${href: 0:1}" != $'/' ]; then
+            # Find this path in localfiles and remove it
+            for index in "${!localfiles[@]}"
+            do
+                if [ "${localfiles[$index]}" == "${dst:0:-1}" ]; then
+                    unset localfiles[$index]
+                fi
+            done
+
             # Call recursivly until no more directories are found
             local recursivecall=$(httpsync "$url" "$dst" "${querylist[*]}" | tr -d '\0')
 
@@ -262,19 +272,60 @@ httpsync() {
 
                 # Extract file information
                 bytes=$(echo "${header[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
-                local modified_STR=$(echo "${header[*]}" | grep -i "Last-modified" \
+                local modified_str=$(echo "${header[*]}" | grep -i "Last-modified" \
                 | awk -v 'IGNORECASE=1' -F'Last-modified:' '{print $2}')
-                modified=$(date -d "$modified_STR" "+%Y-%m-%d %H:%M:%S")
+                if [ ! -z "${modified_str}" ]; then 
+                    modified=$(date -d "$modified_str")
+                else
+                    debug "No modification date found for \"${url}\""
+                fi
 
                 if [ ! -z "$bytes" ] && [ $bytes -gt 0 ]; then
-                    # TODO: Check if local file is out of sync with this.
+                    # Try to find this file at local destination
+                    for index in "${!localfiles[@]}"
+                    do
+                        if [ "${localfiles[$index]}" == "$dst" ]; then
+                            unset localfiles[$index]
+                            # Get local file information
+                            local bytes_local=$(du -k "$dst" | cut -f1)
+                            local modified_local=$(date -r "$dst")
 
-                    filesize=$(echo $bytes | numfmt --to=iec-i)
+                            # Check if file is changed based on date if date was extracted
+                            if [ ! -z $modified ] && [ $modified > $modified_local ]; then
+                                debug "Local file \"${dst}\" is unchanged at remote based on date"
+
+                                # Continue with the next item in the loop above this inner as the file is unchanged
+                                continue 2
+                            fi
+
+                            # If we cannot test by date, test with size
+                            if [ $bytes -eq $bytes_local ]; then 
+                                debug "Local file \"${dst}\" is unchanged at remote based on size"
+
+                                # Continue with the next item in the loop above this inner as the file is unchanged
+                                continue 2
+                            fi
+
+                            # Break this first loop as we found the file
+                            debug "The remote file \"${url}\" has changed from local \"${dst}\""
+                            break
+                        fi
+                    done
+
+                    local filesize=$(echo $bytes | numfmt --to=iec-i)
                     debug "Added a file of size ${filesize}B from \"${url}\" to the list, it was last modifed 
 \"${modified}\""
                     # Add to the array
-                    local file=("$url" "$modified" "$bytes" "$dst")
-                    filelist+=($file)
+                    filentry=("ADD" "$url" "$dst" "$bytes")
+                    filelist+=($filentry)
+
+                    # Find this file in localfiles and remove it
+                    for index in "${!localfiles[@]}"
+                    do
+                        if [ "${localfiles[$index]}" == "${dst}" ]; then
+                            unset localfiles[$index]
+                        fi
+                    done
                 else
                     debug "Not a file \"$url\", ignoring path"
                 fi
@@ -285,6 +336,16 @@ httpsync() {
             debug "Ignoring parent path \"${href}\" at remote: $baseurl"
         fi
     done
+
+    # Add the remaining local files for deletion
+    for localfile in "${localfiles[@]}"
+    do
+        # Add to the array
+        filentry=("DELETE" "" "$localfile" "")
+        filelist+=($filentry)
+    done
+
+    # Return array
     echo "${filelist[*]}"
 }
 

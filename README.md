@@ -10,21 +10,26 @@ one is down. The main script can be set up using chrone or just manual calls.
 ## Features 
 Currently the script has these features:
 * Many validation steps with detailed log to ensure stability and control
-* Able to syncronize multiple repositories on a single root folder
+* Ability to syncronize multiple repositories agains a single local path
 * Able to define multiple remotes in case of connection error
 * Mangage version exclusion at source to minimize local footprint
+* Define custom exclusion queries for each repository
 * Verifies diskspace before starting transfer
-* Specific update log
+* Specific update log for each run
 
 Protocols that script currently has support for is:
 * rsync
+* http/https
+
+The script uses a custom function called httpsync that scrapes a remote 
+http/https website with the help of curl. The data is then compared with the 
+local files and downloaded as needed, like the rsync function.
 
 ## Installation
-Required packets used with this script, ensure that these are availble before 
+Required packets used with this script, ensure that these are available before 
 using the script:
 * rsync
 * curl
-* wget
 Also read the [Disclaimer](#disclaimer).
 
 Installation can be done via the installation script or by using the 
