@@ -94,7 +94,7 @@ while [ "$#" -gt 0 ]; do
         -h|--help) usage; exit 0;;
         -hr|--human-readable) HUMAN_READABLE=1;;
         -l|--list-only) LIST_ONLY=1;;
-        --progress) PROGRESS_ARG=1;
+        --progress) PROGRESS_ARG=1;;
         -r|--recursive) RECURSIVE_ARG=1;;
         --stats) STATS=1;;
         -v|--verbose) VERBOSE_ARG=1;;
