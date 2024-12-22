@@ -8,17 +8,15 @@
 #
 # Copyright (c) 2024 CodeOOf
 
+# Global Variables
 CONFIGFILE="/etc/mirrorsync/mirrorsync.conf"
-REPOCONFIG_DIR="/etc/mirrorsync/repos.conf.d"
+REPOCONFIGDIR="/etc/mirrorsync/repos.conf.d"
 LOCKFILE="$0.lockfile"
 LOGFILE=""
 VERBOSE=""
-
-
 HTTP_PORT=80
 HTTPS_PORT=443
 RSYNC_PORT=873
-
 STDOUT=0
 VERBOSE_ARG=0
 DEBUG_ARG=0
@@ -32,7 +30,7 @@ error_stdout() { log_stdout "Error: $*" >&2; }
 fatal_stdout() { error_stdout "$*, exiting..."; exit 1; }
 argerror_stdout() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
 
-# Log functions when logfile is set
+# Log functions
 log() { 
     printf "[%(%F %T)T] %s\n" -1 "$*" >> "$LOGFILE" 2>&1
     if [ $STDOUT -eq 1 ] || [ $VERBOSE_ARG -eq 1 ]; then log_stdout "$*" >&2; fi
@@ -97,14 +95,22 @@ else
 fi
 
 # Verify repo path exists
-if [ ! -d "$REPOCONFIG_DIR" ]; then
-    fatal_stdout "The directory \"$REPOCONFIG_DIR\" does not exist"
+if [ ! -d "$REPOCONFIGDIR" ]; then
+    fatal_stdout "The directory \"$REPOCONFIGDIR\" does not exist"
 fi
 
 # Verify that there are any mirror repositories to work with
-REPOCONFIGS=(${REPOCONFIG_DIR}/*.conf)
+REPOCONFIGS=(${REPOCONFIGDIR}/*.conf)
+# Remove example config from list
+for index in "${!REPOCONFIGS[@]}"
+do
+    if [ "${REPOCONFIGS[$index]}" == "example.conf" ]; then
+        unset REPOCONFIGS[$index]
+    fi
+done
+# Verify that there are items left
 if [ ${#REPOCONFIGS[@]} -eq 0 ]; then
-    fatal_stdout "The directory \"$REPOCONFIG_DIR\" is empty or contains no config files, please provide repository 
+    fatal_stdout "The directory \"$REPOCONFIGDIR\" is empty or contains no config files, please provide repository 
 config files that this script can work with"
 fi
 
@@ -114,6 +120,7 @@ if [ ! -w "$SCRIPTDIR" ]; then
     fatal_stdout "The directory where this script is located is not writable for this user. This is required for the 
 lockfile to avoid multiple simultaneous runs of the script"
 fi
+VERSION=$(cat ${SCRIPTDIR}/.version)
 
 # Validate current settings
 if [ -z "$LOGPATH" ]; then 
@@ -131,21 +138,21 @@ if [ -z "$LOGFILENAME" ]; then
 fi
 LOGFILE="${LOGPATH}/${LOGFILENAME}.log"
 
-if [ -z "$DSTPATH" ]; then 
-    fatal "Missing variable \"DSTPATH\" at \"${CONFIGFILE}\". It is required to know where to write the mirror data"
+if [ -z "$LOCALDST" ]; then 
+    fatal "Missing variable \"LOCALDST\" at \"${CONFIGFILE}\". It is required to know where to write the mirror data"
 fi
 
-if [ ! -w "$DSTPATH" ]; then
-    fatal "The destination path \"${DSTPATH}\" is not writable for this user"
+if [ ! -w "$LOCALDST" ]; then
+    fatal "The destination path \"${LOCALDST}\" is not writable for this user"
 fi
 
 # Check for existing lockfile to avoid multiple simultaneously running syncs
 # If lockfile exists but process is dead continue anyway
 if [ -e "$LOCKFILE" ] && ! kill -0 "$(< "$LOCKFILE")" 2>&1; then
-    warning "lockfile exists but process dead, continuing..."
+    warning "lockfile exists but process dead, continuing"
     rm -f "$LOCKFILE"
 elif [ -e "$LOCKFILE" ]; then
-    info "A update is already in progress, exiting..."
+    info "A update is already in progress, exiting"
     exit 1
 fi
 
@@ -154,9 +161,6 @@ print_header_updatelog() {
     # Expected command:
     # print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERSIZE" "$AVAILABLESIZE" "$UPDATELOGFILE" "${OPTS[*]}"
     
-    # Get script version
-    local VERSION=$(cat ${SCRIPTDIR}/.version)
-
     # Print info to new updatelog
     printf "# Syncronization with %s using Mirrorsync by CodeOOf\n" "$1" >> "$6" 2>&1
     printf "# Version: %s\n" "$VERSION" >> "$6" 2>&1
@@ -174,15 +178,15 @@ print_header_updatelog() {
 # Function to validate if value is matched in a array of queries
 # Usage: arraymatch "value_to_test" "array of values to validate"
 arraymatch() {
-    local QUERIES=($2)
-    local VALUE="$1"
+    local queries=($2)
+    local value="$1"
 
-    if [ "${1:-1:1}" == "/" ]; then VALUE=${1:0:-1}; fi
+    if [ "${1:-1:1}" == "/" ]; then value=${1:0:-1}; fi
 
-    for QUERY in "${QUERIES[@]}"
+    for query in "${queries[@]}"
     do
-        if [[ "$VALUE" == $QUERY ]] || [[ "${1:0:-1}" == $QUERY ]]; then 
-            debug "The value \"${1}\" matched query \"${QUERY}\""; 
+        if [[ "$value" == $query ]] || [[ "${1:0:-1}" == $query ]]; then 
+            debug "The value \"${1}\" matched query \"${query}\""; 
             return 0; 
         fi
     done
@@ -196,89 +200,92 @@ arraymatch() {
 # With the ending slash on paths and urls
 # excludes starting with "/" only excludes from root
 httpsync() {
-    local FILELIST=()
-    local BASEURL=$1
-    local LOCALPATH=$2
-    local EXCLUDES=($3)
-    local ROOTEXCLUDE=()
+    local filelist=()
+    local baseurl=$1
+    local localpath=$2
+    local querylist=($3)
+    local rootqueries=()
 
     # Extract all root items to exlude
-    for INDEX in "${!EXCLUDES[@]}"
+    for index in "${!querylist[@]}"
     do
-        if [ "${EXCLUDES[$INDEX]:0:1}" == "/" ]; then
-            ROOTEXCLUDE+=("${EXCLUDES[$INDEX]:1}")
-            unset EXCLUDES[$INDEX]
+        if [ "${querylist[$index]:0:1}" == "/" ]; then
+            rootqueries+=("${querylist[$index]:1}")
+            unset querylist[$index]
         fi
     done
-    debug "Excludelist only for \"${BASEURL}\": ${ROOTEXCLUDE[*]}"
+    debug "Queries used only for \"${baseurl}\": ${rootqueries[*]}"
 
     # Get all the links on that page
-    debug "Begin scraping paths from \"$BASEURL\""
-    for HREF in $(curl -s "$BASEURL" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
+    debug "Begin scraping paths from \"$baseurl\""
+    for href in $(curl -s "$baseurl" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
-        debug "Now working on relative path: $HREF"
+        debug "Now working on relative path: $href"
         # Constructs the new url, assuming relative paths at remote
-        local URL="${BASEURL}$HREF"
-        local DST="${LOCALPATH}$HREF"
+        local url="${baseurl}$href"
+        local dst="${localpath}$href"
 
         # Check if part of exclude list
-        if (arraymatch "$HREF" "${EXCLUDES[*]}") || (arraymatch "$HREF" "${ROOTEXCLUDE[*]}"); then
-            debug "The path \"${HREF}\" is part of the exclude"
+        if (arraymatch "$href" "${querylist[*]}") || (arraymatch "$href" "${rootqueries[*]}"); then
+            debug "The path \"${href}\" is part of the exclude"
             continue
         fi
 
         # Check if the href ends with slash and not parent or begins with slash
-        if [ "${#HREF}" -gt 1 ] && [ "${HREF: -1:1}" == $'/' ]  && 
-        [ "${HREF: -2:2}" != $"./" ] && [ "${HREF: 0:1}" != $'/' ]; then
+        if [ "${#href}" -gt 1 ] && [ "${href: -1:1}" == $'/' ]  && 
+        [ "${href: -2:2}" != $"./" ] && [ "${href: 0:1}" != $'/' ]; then
             # Call recursivly until no more directories are found
-            RECURSIVECALL=$(httpsync "$URL" "$DST" "${EXCLUDES[*]}" | tr -d '\0')
+            local recursivecall=$(httpsync "$url" "$dst" "${querylist[*]}" | tr -d '\0')
 
             # Only add to collection if array is populated
-            IS_ARRAY=$(declare -p RECURSIVECALL | grep '^declare -a')
-            if [ -z "$IS_ARRAY" ]; then
-                FILELIST+=$RECURSIVECALL
+            local is_array=$(declare -p recursivecall | grep '^declare -a')
+            if [ -z "$is_array" ]; then
+                filelist+=$recursivecall
             fi
         # As long as it is not ending slash, assume as file
-        elif [ "${HREF: -1:1}" != $'/' ]; then
-            BYTES=""
-            MODIFIED=""
-            # Verify that URL exists
-            if curl -ivs "$URL" 2>&1; then
+        elif [ "${href: -1:1}" != $'/' ]; then
+            local bytes=""
+            local modified=""
+            # Verify that url exists
+            if curl -ivs "$url" 2>&1; then
                 # Extract content information from header response
-                HEADER=$(curl -sI "$URL")
+                local header=$(curl -sI "$url")
 
                 # Check if location exists first so that we extract information from the file source
-                LOCATION=$(echo "${HEADER[*]}" | grep -i "Location" | awk '{print $2}' | sed -z 's/[[:space:]]*$//')
-                if [ ! -z "$LOCATION" ]; then
-                    info "Found file at another domain \"${LOCATION}\" for \"${DST}\""
-                    HEADER=$(curl -sI "$LOCATION")
-                    URL=$LOCATION
+                local location=$(echo "${header[*]}" | grep -i "location" | awk '{print $2}' \
+                | sed -z 's/[[:space:]]*$//')
+                if [ ! -z "$location" ]; then
+                    info "Found file at another domain \"${location}\" for \"${dst}\""
+                    header=$(curl -sI "$location")
+                    url=$location
                 fi
 
                 # Extract file information
-                BYTES=$(echo "${HEADER[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
-                MODIFIED_STR=$(echo "${HEADER[*]}" | grep -i "Last-Modified"  | awk -v 'IGNORECASE=1' -F'Last-Modified:' '{print $2}')
-                MODIFIED=$(date -d "$MODIFIED_STR" "+%Y-%m-%d %H:%M:%S")
+                bytes=$(echo "${header[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
+                local modified_STR=$(echo "${header[*]}" | grep -i "Last-modified" \
+                | awk -v 'IGNORECASE=1' -F'Last-modified:' '{print $2}')
+                modified=$(date -d "$modified_STR" "+%Y-%m-%d %H:%M:%S")
 
-                if [ ! -z "$BYTES" ] && [ $BYTES -gt 0 ]; then
+                if [ ! -z "$bytes" ] && [ $bytes -gt 0 ]; then
                     # TODO: Check if local file is out of sync with this.
 
-                    FILESIZE=$(echo $BYTES | numfmt --to=iec-i)
-                    debug "Added a file of size ${FILESIZE}B from \"${URL}\" to the list, it was last modifed \"${MODIFIED}\""
+                    filesize=$(echo $bytes | numfmt --to=iec-i)
+                    debug "Added a file of size ${filesize}B from \"${url}\" to the list, it was last modifed 
+\"${modified}\""
                     # Add to the array
-                    FILE=("$URL" "$MODIFIED" "$BYTES" "$DST")
-                    FILELIST+=($FILE)
+                    local file=("$url" "$modified" "$bytes" "$dst")
+                    filelist+=($file)
                 else
-                    debug "Not a file \"$URL\", ignoring path"
+                    debug "Not a file \"$url\", ignoring path"
                 fi
             else
-                info "Invalid URL constructed at remote: $URL"
+                info "Invalid url constructed at remote: $url"
             fi
         else
-            debug "Ignoring parent path \"${HREF}\" at remote: $BASEURL"
+            debug "Ignoring parent path \"${href}\" at remote: $baseurl"
         fi
     done
-    echo "${FILELIST[*]}"
+    echo "${filelist[*]}"
 }
 
 # Main script
@@ -287,192 +294,192 @@ printf '%s\n' "$$" > "$LOCKFILE"
 # Start updating each mirror repo
 log "Synchronization process starting..."
 
-for FILE in "${REPOCONFIGS[@]}"
+for repoconfig in "${REPOCONFIGS[@]}"
 do
-    info "Now working on repository defined at: $FILE"
+    info "Now working on repository defined at: $repoconfig"
 
-    LOCALDIR=""
-    FILELISTFILE=""
-    EXCLUDELIST=()
-    MINMAJOR=0
-    MINMINOR=0
-    REMOTES=()
-    SRC=""
-    PORT=0
+    mirrorname=""
+    filelistfile=""
+    excludequeries=()
+    minmajor=0
+    minminor=0
+    remotes=()
+    remotesrc=""
+    port=0
 
-    source $FILE
+    source $repoconfig
 
     # Define the new path
-    DST="${DSTPATH}/$LOCALDIR"
+    mirrordst="${LOCALDST}/$mirrorname"
 
     # Validate local path is defined and able to write to
-    if [ -z "$LOCALDIR" ]; then
-        error "no local directory is defined in \"${FILE}\", cannot update this mirror continuing with the next"
+    if [ -z "$mirrorname" ]; then
+        error "no local directory is defined in \"${repoconfig}\", cannot update this mirror continuing with the next"
         continue
-    elif [ ! -w "$DST" ]; then
-        error "The path \"${DST}\" is not writable, cannot update this mirror continuing with the next"
+    elif [ ! -w "$mirrordst" ]; then
+        error "The path \"${mirrordst}\" is not writable, cannot update this mirror continuing with the next"
         continue
-    elif [ ! -d "$DST" ]; then
-        warning "A local path for \"${LOCALDIR}\" does not exists, will create one"
-        if [ ! mkdir "$DST" 2>&1 ]; then
-            error "The path \"${DST}\" could not be created, cannot update this mirror continuing with the next"
+    elif [ ! -d "$mirrordst" ]; then
+        warning "A local path for \"${mirrorname}\" does not exists, will create one"
+        if [ ! mkdir "$mirrordst" 2>&1 ]; then
+            error "The path \"${mirrordst}\" could not be created, cannot update this mirror continuing with the next"
             continue
         fi
     fi
     
     # Validate the remotes variable is a array
-    IS_ARRAY=$(declare -p REMOTES | grep '^declare -a')
-    if [ -z "$IS_ARRAY" ]; then
-        error "The remotes defined for \"${LOCALDIR}\" is invalid, cannot update this mirror continuing with the next"
+    is_array=$(declare -p remotes | grep '^declare -a')
+    if [ -z "$is_array" ]; then
+        error "The remotes defined for \"${mirrorname}\" is invalid, cannot update this mirror continuing with the next"
         continue
     fi
     
     # Verify network connectivity against the remote and the select first available
-    for REMOTE in "${REMOTES[@]}"
+    for remote in "${remotes[@]}"
     do
         # Check the protocol defined in the begining of the url and map it against a port number
-        case "${REMOTE%%:*}" in
+        case "${remote%%:*}" in
             rsync)
-                PORT=$RSYNC_PORT
+                port=$RSYNC_port
                 ;;
             https)
-                PORT=$HTTPS_PORT
+                port=$HTTPS_port
                 ;;
             http)
-                PORT=$HTTP_PORT
+                port=$HTTP_port
                 ;;
             *)
-                error "The remote path \"${REMOTE}\" contains a invalid protocol"
+                error "The remote path \"${remote}\" contains a invalid protocol"
                 continue
                 ;;
         esac
         
         # Make a connection test against the url on that port to validate connectivity
-        DOMAIN=$(echo $REMOTE | awk -F[/:] '{print $4}' | sed -z 's/[[:space:]]*$//')
-        (echo > /dev/tcp/${DOMAIN}/${PORT}) &>/dev/null
+        domain=$(echo $remote | awk -F[/:] '{print $4}' | sed -z 's/[[:space:]]*$//')
+        (echo > /dev/tcp/${domain}/${port}) &>/dev/null
         if [ $? -eq 0 ]; then
-            info "Connection valid for \"${REMOTE}\""
-            SRC=$REMOTE
+            info "Connection valid for \"${remote}\""
+            remotesrc=$remote
             break
         fi
 
         # If we get here the connection did not work
-        warning "No connection with \"${REMOTE}\", testing the next remote..."
+        warning "No connection with \"${remote}\", testing the next remote..."
     done
 
     # If no source url is defined it means we did not find a valid remote url that we can connect to now
-    if [ -z "$SRC" ]; then
-        error "No connection with any remote found in \"${FILE}\", cannot update this mirror continuing with the next"
+    if [ -z "$remotesrc" ]; then
+        error "No connection with any remote found in \"${repoconfig}\", cannot update this mirror continuing with the next"
         continue
     fi
 
     # Many mirrors provide a filelist that is much faster to validate against first and takes less requests, 
     # So we start with that
-    CHECKRESULT=""
-    if [ -z "$FILELISTFILE" ]; then
-        info "The variable \"FILELISTFILE\" is empty or not defined for \"${FILE}\""
-    elif [ "$PORT" == "$RSYNC_PORT" ]; then
-        CHECKRESULT=$(rsync --no-motd --dry-run --out-format="%n" "${SRC}/$FILELISTFILE" "${DST}/$FILELISTFILE")
+    checkresult=""
+    if [ -z "$filelistfile" ]; then
+        info "The variable \"filelistfile\" is empty or not defined for \"${repoconfig}\""
+    elif [ "$port" == "$RSYNC_port" ]; then
+        checkresult=$(rsync --no-motd --dry-run --out-format="%n" "${remotesrc}/$filelistfile" "${mirrordst}/$filelistfile")
     else
-        warning "The protocol used with \"${SRC}\" has not yet been implemented. Move another protocol higher up in 
+        warning "The protocol used with \"${remotesrc}\" has not yet been implemented. Move another protocol higher up in 
 list of remotes to solve this at the moment. Cannot update this mirror continuing with the next"
         continue
     fi
 
     # Check the results of the filelist against the local
-    if [ -z "$CHECKRESULT" ] && [ ! -z "$FILELISTFILE" ]; then
-        info "The filelist is unchanged at \"${SRC}\", no update required for this mirror continuing with the next"
+    if [ -z "$checkresult" ] && [ ! -z "$filelistfile" ]; then
+        info "The filelist is unchanged at \"${remotesrc}\", no update required for this mirror continuing with the next"
         continue
     fi
 
     # Create a new exlude file before running the update
-    EXCLUDEFILE="${SCRIPTDIR}/${LOCALDIR}_exclude.txt"
+    excludefile="${SCRIPTDIR}/${mirrorname}_exclude.txt"
     # Clear file
-    > $EXCLUDEFILE
+    > $excludefile
 
     # Validate the exclude list variable is a array
-    if [ ! $(declare -p EXCLUDELIST | grep '^declare -a') ]; then
-        error "The exclude list defined for \"${LOCALDIR}\" is invalid, will ignore it and continue."
-        EXCLUDELIST=()
+    if [ ! $(declare -p excludequeries | grep '^declare -a') ]; then
+        error "The exclude list defined for \"${mirrorname}\" is invalid, will ignore it and continue."
+        excludequeries=()
     fi
 
     # Generate the version exclude list, assumes that the versions are organized at root
-    debug "Current exclude versions is up to v${MINMAJOR}.${MINMINOR}"
-    if [ $MINMAJOR -gt 0 ]; then
-        for i in $(seq 0 $((MINMAJOR -1)))
+    debug "Current exclude versions is up to v${minmajor}.${minminor}"
+    if [ $minmajor -gt 0 ]; then
+        for i in $(seq 0 $((minmajor -1)))
         do
-            EXCLUDELIST+=("/$i" "/$i.*")
+            excludequeries+=("/$i" "/$i.*")
         done
-        if [ $MINMINOR -gt 0 ]; then
-            for i in $(seq 0 $((MINMINOR -1)))
+        if [ $minminor -gt 0 ]; then
+            for i in $(seq 0 $((minminor -1)))
             do
-                EXCLUDELIST+=("/$MINMAJOR.$i")
+                excludequeries+=("/$minmajor.$i")
             done
         fi
     fi
-    debug "Current generated excludelist is: ${EXCLUDELIST[*]}"
+    debug "Current generated excludequeries is: ${excludequeries[*]}"
 
     # Write the new excludes into the excludefile
-    for EXCLUDE in "${EXCLUDELIST[@]}"
+    for exclude in "${excludequeries[@]}"
     do
-        printf "$EXCLUDE\n" >> $EXCLUDEFILE
+        printf "$exclude\n" >> $excludefile
     done
-    debug "Excludes added to the file \"${EXCLUDEFILE}\""
+    debug "excludes added to the file \"${excludefile}\""
 
     # Current disk spaces in bytes
-    AVAILABLEBYTES=$(df -B1 $DST | awk 'NR>1{print $4}' | tr -cd '[:digit:].')
-    AVAILABLESIZE=$(echo $AVAILABLEBYTES | numfmt --to=iec-i)
-    REPOBYTES=$(du -sB1 "${DST}/" | awk 'NR>0{print $1}' | tr -cd '[:digit:].')
+    availablebytes=$(df -B1 $mirrordst | awk 'NR>1{print $4}' | tr -cd '[:digit:].')
+    availablesize=$(echo $availablebytes | numfmt --to=iec-i)
+    repobytes=$(du -sB1 "${mirrordst}/" | awk 'NR>0{print $1}' | tr -cd '[:digit:].')
 
     # Depending on what protocol the url has the approch on syncronizing the repo is different
-    case $PORT in
+    case $port in
         $RSYNC_PORT)
             # Set variables for the run
-            OPTS=(-vrlptDSH --delete-excluded --delete-delay --delay-updates --exclude-from=$EXCLUDEFILE)
-            UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_rsyncupdate.log"
+            opts=(-vrlptDSH --delete-excluded --delete-delay --delay-updates --exclude-from=$excludefile)
+            updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_rsyncupdate.log"
 
             # First validate that there is enough space on the disk
-            TRANSFERBYTES=$(rsync "${OPTS[@]}" --dry-run --stats "${SRC}/" "${DST}/" | grep -i "Total transferred" \
+            transferbytes=$(rsync "${opts[@]}" --dry-run --stats "${remotesrc}/" "${mirrordst}/" | grep -i "Total transferred" \
             | sed 's/[^0-9]*//g')
 
             # Convert bytes into human readable
-            TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
-            info "This synchronization will require ${TRANSFERSIZE}B on local storage"
+            transfersize=$(echo $transferbytes | numfmt --to=iec-i)
+            info "This synchronization will require ${transfersize}B on local storage"
                 
-            if [ $TRANSFERBYTES -gt $AVAILABLEBYTES ]; then
-                error "Not enough space on disk! This transfer needs ${TRANSFERSIZE}B of ${AVAILABLESIZE}B available. 
+            if [ $transferbytes -gt $availablebytes ]; then
+                error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B available. 
 Cannot update this mirror continuing with the next"
                 continue
             fi
 
-            # Header for the new log fil
-            print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERSIZE" "$AVAILABLESIZE" "$UPDATELOGFILE" "${OPTS[*]}"
+            # header for the new log fil
+            print_header_updatelog "rsync" "$remotesrc" "$mirrordst" "$transfersize" "$availablesize" "$updatelogfile" "${opts[*]}"
 
             # Start updating
-            rsync "${opts[@]}" "${SRC}/" "${DST}/" >> "$UPDATELOGFILE" 2>&1
+            rsync "${opts[@]}" "${remotesrc}/" "${mirrordst}/" >> "$updatelogfile" 2>&1
 
             # Finished
-            info "Finished updating mirror \"${LOCALDIR}\", log found at \"${UPDATELOGFILE}\""
+            info "Finished updating mirror \"${mirrorname}\", log found at \"${updatelogfile}\""
             ;;
         $HTTP_PORT|$HTTPS_PORT)
 
             # TODO: First use httpsync to get a list of out of sync files
 
-            TEST=$(httpsync "${SRC}/" "${DST}/" "${EXCLUDELIST[*]}")
+            TEST=$(httpsync "${remotesrc}/" "${mirrordst}/" "${excludequeries[*]}")
             echo "Recursive filelist: ${TEST[*]}"
 
             # Set variables for the run
-            OPTS=(-mpEk --no-parent --convert-links --random-wait robots=off --reject="$(tr '\n' ',' < $EXCLUDEFILE)")
-            UPDATELOGFILE="${LOGPATH}/$(date +%y%m%d%H%M)_${LOCALDIR}_httpupdate.log"
+            opts=(-mpEk --no-parent --convert-links --random-wait robots=off --reject="$(tr '\n' ',' < $excludefile)")
+            updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_httpupdate.log"
 
             # First validate that there is enough space on the disk
-            REMOTE_REPOBYTES=$(wget "${OPTS[@]}" --spider  "${SRC}/" | grep -i "Length" | gawk '{sum+=$2}END{print sum}')
-            TRANSFERBYTES=$(expr $REMOTE_REPOBYTES - $REPOBYTES)
-            TRANSFERSIZE=$(echo $TRANSFERBYTES | numfmt --to=iec-i)
-            info "This synchronization will require ${TRANSFERSIZE}B on local storage"
+            remote_repobytes=$(wget "${opts[@]}" --spider  "${remotesrc}/" | grep -i "Length" | gawk '{sum+=$2}END{print sum}')
+            transferbytes=$(expr $remote_repobytes - $repobytes)
+            transfersize=$(echo $transferbytes | numfmt --to=iec-i)
+            info "This synchronization will require ${transfersize}B on local storage"
 
-            if [ $TRANSFERBYTES -gt $AVAILABLEBYTES ]; then
-                error "Not enough space on disk! This transfer needs ${TRANSFERSIZE}B of ${AVAILABLESIZE}B available. 
+            if [ $transferbytes -gt $availablebytes ]; then
+                error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B available. 
 Cannot update this mirror continuing with the next"
                 continue
             fi
@@ -480,7 +487,7 @@ Cannot update this mirror continuing with the next"
 
             ;;
         *)
-            warning "The protocol defined for \"${SRC}\" is invalid, cannot update this mirror continuing with the next"
+            warning "The protocol defined for \"${remotesrc}\" is invalid, cannot update this mirror continuing with the next"
             ;;
     esac
 done
