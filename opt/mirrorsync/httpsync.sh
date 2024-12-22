@@ -89,8 +89,8 @@ while [ "$#" -gt 0 ]; do
         -d|--debug) DEBUG_ARG=1;;
         --delete-after) DELETE_AFTER=1;;
         --delete-exclude) DELETE_EXCLUDE=1;;
-        --exclude) EXCLUDES=($2); shift;;
-        --exclude-file) EXCLUDE_FILE="$2"; shift;;
+        --exclude) EXCLUDES=($2);;
+        --exclude-file) EXCLUDE_FILE="$2";;
         -h|--help) usage; exit 0;;
         -hr|--human-readable) HUMAN_READABLE=1;;
         -l|--list-only) LIST_ONLY=1;;
@@ -102,7 +102,6 @@ while [ "$#" -gt 0 ]; do
         -*) error_argument "Unknown option: '$1'";;
         *)
             POSITIONAL_ARGS+=("$1")
-            shift
             ;;
     esac
     shift || error_argument "Option '${arg}' requires a value"
