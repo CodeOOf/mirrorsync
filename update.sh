@@ -18,7 +18,7 @@ info_stdout() { log_stdout "$*" >&2; }
 warning_stdout() { log_stdout "Warning: $*" >&2; }
 error_stdout() { log_stdout "Error: $*" >&2; }
 fatal_stdout() { error_stdout "$*, exiting..."; exit 1; }
-argerror_stdout() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
+error_argument() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
 
 # Arguments Help
 usage() {
@@ -55,10 +55,10 @@ while [ "$#" -gt 0 ]; do
         -g|--group) shift; GROUP=$1; info_stdout "Group set to: $1";;
         -h|--help) usage; exit 0;;
         --) shift; break;;
-        -*) argerror_stdout "Unknown option: '$1'";;
+        -*) error_argument "Unknown option: '$1'";;
         *) break;;
     esac
-    shift || argerror_stdout "Option '${arg}' requires a value"
+    shift || error_argument "Option '${arg}' requires a value"
 done
 
 # Recive full path to this script

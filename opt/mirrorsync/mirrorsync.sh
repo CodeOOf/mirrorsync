@@ -28,7 +28,7 @@ debug_stdout() { log_stdout "Debug: $*" >&2; }
 warning_stdout() { log_stdout "Warning: $*" >&2; }
 error_stdout() { log_stdout "Error: $*" >&2; }
 fatal_stdout() { error_stdout "$*, exiting..."; exit 1; }
-argerror_stdout() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
+error_argument() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
 
 # Log functions
 log() { 
@@ -41,10 +41,7 @@ info() {
     if [ $VERBOSE_ARG -eq 1 ]; then log_stdout "$*" >&2; fi
 }
 
-debug() { 
-    if [ $DEBUG_ARG -eq 1 ]; then debug_stdout "$*" >&2; fi
-}
-
+debug() { if [ $DEBUG_ARG -eq 1 ]; then debug_stdout "$*" >&2; fi }
 warning() { log "Warning: $*" >&2; }
 error() { log "Error: $*" >&2; }
 fatal() { error "$*, exiting..."; exit 1; }
@@ -81,10 +78,10 @@ while [ "$#" -gt 0 ]; do
         -v|--verbose) VERBOSE_ARG=1; info_stdout "Verbose Mode Activated";;
         -h|--help) usage; exit 0;;
         --) shift; break;;
-        -*) argerror_stdout "Unknown option: '$1'";;
+        -*) error_argument "Unknown option: '$1'";;
         *) break;;
     esac
-    shift || argerror_stdout "Option '${arg}' requires a value"
+    shift || error_argument "Option '${arg}' requires a value"
 done
 
 # Verify config file is readable
@@ -121,6 +118,7 @@ if [ ! -w "$SCRIPTDIR" ]; then
 lockfile to avoid multiple simultaneous runs of the script"
 fi
 VERSION=$(cat ${SCRIPTDIR}/.version)
+HTTPSYNC="${SCRIPTDIR}/httpsync.sh"
 
 # Validate current settings
 if [ -z "$LOGPATH" ]; then 
@@ -175,179 +173,6 @@ print_header_updatelog() {
     printf "Files transfered: \n\n" >> "$6" 2>&1
 }
 
-# Function to validate if value is matched in a array of queries
-# Usage: arraymatch "value_to_test" "array of values to validate"
-arraymatch() {
-    local queries=($2)
-    local value="$1"
-
-    if [ "${1:-1:1}" == "/" ]; then value=${1:0:-1}; fi
-
-    for query in "${queries[@]}"
-    do
-        if [[ "$value" == $query ]] || [[ "${1:0:-1}" == $query ]]; then 
-            debug "The value \"${1}\" matched query \"${query}\""; 
-            return 0; 
-        fi
-    done
-
-    return 1
-}
-
-# This is a recursive function that will parse through a website with listed items and compare with local
-# returning a list of itemes out of sync
-# Usage: httpsync "http://example.com/pub/repo/" "/my/local/destination/" "(EXCLUDE/,*FILES,and~,/dirs)"
-# With the ending slash on paths and urls
-# excludes starting with "/" only excludes from root
-httpsync() {
-    local filelist=()
-    local baseurl=$1
-    local localpath=$2
-    local querylist=($3)
-    local rootqueries=()
-    local localfiles=(${localpath}/*)
-    local filentry=()
-
-    # Extract all root items to exlude
-    for index in "${!querylist[@]}"
-    do
-        if [ "${querylist[$index]:0:1}" == "/" ]; then
-            rootqueries+=("${querylist[$index]:1}")
-            unset querylist[$index]
-        fi
-    done
-    debug "Queries used only for \"${baseurl}\": ${rootqueries[*]}"
-
-    # Get all the links on that page
-    debug "Begin scraping paths from \"$baseurl\""
-    for href in $(curl -s "$baseurl" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
-    do 
-        debug "Now working on relative path: $href"
-        # Constructs the new url, assuming relative paths at remote
-        local url="${baseurl}$href"
-        local dst="${localpath}$href"
-
-        # Check if part of exclude list
-        if (arraymatch "$href" "${querylist[*]}") || (arraymatch "$href" "${rootqueries[*]}"); then
-            debug "The path \"${href}\" is part of the exclude"
-            continue
-        fi
-
-        # Check if the href ends with slash and not parent or begins with slash
-        if [ "${#href}" -gt 1 ] && [ "${href: -1:1}" == $'/' ]  && 
-        [ "${href: -2:2}" != $"./" ] && [ "${href: 0:1}" != $'/' ]; then
-            # Find this path in localfiles and remove it
-            for index in "${!localfiles[@]}"
-            do
-                if [ "${localfiles[$index]}" == "${dst:0:-1}" ]; then
-                    unset localfiles[$index]
-                fi
-            done
-
-            # Call recursivly until no more directories are found
-            local recursivecall=$(httpsync "$url" "$dst" "${querylist[*]}" | tr -d '\0')
-
-            # Only add to collection if array is populated
-            local is_array=$(declare -p recursivecall | grep '^declare -a')
-            if [ -z "$is_array" ]; then
-                filelist+=$recursivecall
-            fi
-        # As long as it is not ending slash, assume as file
-        elif [ "${href: -1:1}" != $'/' ]; then
-            local bytes=""
-            local modified=""
-            # Verify that url exists
-            if curl -ivs "$url" 2>&1; then
-                # Extract content information from header response
-                local header=$(curl -sI "$url")
-
-                # Check if location exists first so that we extract information from the file source
-                local location=$(echo "${header[*]}" | grep -i "location" | awk '{print $2}' \
-                | sed -z 's/[[:space:]]*$//')
-                if [ ! -z "$location" ]; then
-                    info "Found file at another domain \"${location}\" for \"${dst}\""
-                    header=$(curl -sI "$location")
-                    url=$location
-                fi
-
-                # Extract file information
-                bytes=$(echo "${header[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
-                local modified_str=$(echo "${header[*]}" | grep -i "Last-modified" \
-                | awk -v 'IGNORECASE=1' -F'Last-modified:' '{print $2}')
-                if [ ! -z "${modified_str}" ]; then 
-                    modified=$(date -d "$modified_str")
-                else
-                    debug "No modification date found for \"${url}\""
-                fi
-
-                if [ ! -z "$bytes" ] && [ $bytes -gt 0 ]; then
-                    # Try to find this file at local destination
-                    for index in "${!localfiles[@]}"
-                    do
-                        if [ "${localfiles[$index]}" == "$dst" ]; then
-                            unset localfiles[$index]
-                            # Get local file information
-                            local bytes_local=$(du -k "$dst" | cut -f1)
-                            local modified_local=$(date -r "$dst")
-
-                            # Check if file is changed based on date if date was extracted
-                            if [ ! -z $modified ] && [ $modified > $modified_local ]; then
-                                debug "Local file \"${dst}\" is unchanged at remote based on date"
-
-                                # Continue with the next item in the loop above this inner as the file is unchanged
-                                continue 2
-                            fi
-
-                            # If we cannot test by date, test with size
-                            if [ $bytes -eq $bytes_local ]; then 
-                                debug "Local file \"${dst}\" is unchanged at remote based on size"
-
-                                # Continue with the next item in the loop above this inner as the file is unchanged
-                                continue 2
-                            fi
-
-                            # Break this first loop as we found the file
-                            debug "The remote file \"${url}\" has changed from local \"${dst}\""
-                            break
-                        fi
-                    done
-
-                    local filesize=$(echo $bytes | numfmt --to=iec-i)
-                    debug "Added a file of size ${filesize}B from \"${url}\" to the list, it was last modifed 
-\"${modified}\""
-                    # Add to the array
-                    filentry=("ADD" "$url" "$dst" "$bytes")
-                    filelist+=($filentry)
-
-                    # Find this file in localfiles and remove it
-                    for index in "${!localfiles[@]}"
-                    do
-                        if [ "${localfiles[$index]}" == "${dst}" ]; then
-                            unset localfiles[$index]
-                        fi
-                    done
-                else
-                    debug "Not a file \"$url\", ignoring path"
-                fi
-            else
-                info "Invalid url constructed at remote: $url"
-            fi
-        else
-            debug "Ignoring parent path \"${href}\" at remote: $baseurl"
-        fi
-    done
-
-    # Add the remaining local files for deletion
-    for localfile in "${localfiles[@]}"
-    do
-        # Add to the array
-        filentry=("DELETE" "" "$localfile" "")
-        filelist+=($filentry)
-    done
-
-    # Return array
-    echo "${filelist[*]}"
-}
 
 # Main script
 printf '%s\n' "$$" > "$LOCKFILE"
