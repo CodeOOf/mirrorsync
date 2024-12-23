@@ -164,7 +164,7 @@ httpssynclist() {
 
     # Get all the links on that page
     debug "Begin scraping paths from \"$baseurl\""
-    for href in $(curl -s "$baseurl" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
+    for href in $(curl -sf "$baseurl" | sed -n "/href/ s/.*href=['\"]\([^'\"]*\)['\"].*/\1/gp")
     do 
         debug "Now working on relative path: $href"
         # Constructs the new url, assuming relative paths at remote
@@ -196,17 +196,19 @@ httpssynclist() {
         elif [ "${href: -1:1}" != $'/' ]; then
             local bytes=""
             local modified=""
-            # Verify that url exists
-            if curl -ivs "$url" 2>&1; then
+            
+            # Verify that url is OK
+            local http_status=$(curl -o /dev/null -sIw '%{http_code}' "$url")
+            if [ $http_status -eq 200 ]; then
                 # Extract content information from header response
-                local header=$(curl -sI "$url")
+                local header=$(curl -sfI "$url")
 
                 # Check if location exists first so that we extract information from the file source
                 local location=$(echo "${header[*]}" | grep -i "location" | awk '{print $2}' \
                 | sed -z 's/[[:space:]]*$//')
                 if [ ! -z "$location" ]; then
                     info "Found file at another domain \"${location}\" for \"${dst}\""
-                    header=$(curl -sI "$location")
+                    header=$(curl -sfI "$location")
                     url="$location"
                 fi
 
