@@ -196,7 +196,7 @@ httpssynclist() {
         elif [ "${href: -1:1}" != $'/' ]; then
             local bytes=""
             local modified=""
-            
+
             # Verify that url is OK
             local http_status=$(curl -o /dev/null -sIw '%{http_code}' "$url")
             if [ $http_status -eq 200 ]; then
@@ -298,12 +298,12 @@ if [ "${DST:-1:1}" != "/" ]; then DST="${DST}/"; debug "Added a \"/\" to the des
 
 info "Synchronization from \"${SRC}\" to \"${DST}\" starting"
 httpssynclist "$SRC" "$DST" "${EXCLUDES[*]}" >&2
-info "Synchronization finished"
+info "Remote source scraping finished"
 
 # If we only suppose to print the transfer size
 if [ $STATS -eq 1 ]; then
     transfer_size=0
-    for fileinfo in "${RESULTS[@]}"
+    for fileinfo in "${SYNCLIST[@]}"
     do
         if [ ! -z "${fileinfo[0]}" ]; then transfer_size+=$fileinfo[2]; fi
     done
@@ -317,7 +317,7 @@ fi
 
 # If we only suppose to print the list
 if [ $LIST_ONLY -eq 1 ]; then
-    for fileinfo in "${RESULTS[@]}"
+    for fileinfo in "${SYNCLIST[@]}"
     do
         if [ ! -z "${fileinfo[0]}" ]; then 
             progress "*NEW* ${FILE[1]}"
@@ -331,7 +331,7 @@ if [ $LIST_ONLY -eq 1 ]; then
 fi
 
 # Main Sync
-for fileinfo in "${RESULTS[@]}"
+for fileinfo in "${SYNCLIST[@]}"
 do
     if [ ! -z "${fileinfo[0]}" ]; then 
         progress "Transfering ${fileinfo[1]}"
