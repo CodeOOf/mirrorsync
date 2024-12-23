@@ -24,6 +24,7 @@ VERBOSE_ARG=0
 POSITIONAL_ARGS=()
 SRC=""
 DST=""
+SYNCLIST=()
 
 # Log functions
 log() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
@@ -144,7 +145,6 @@ arraymatch() {
 # With the ending slash on paths and urls
 # excludes starting with "/" only excludes from root
 httpssynclist() {
-    local filelist=()
     local baseurl=$1
     local localpath=$2
     local querylist=($3)
@@ -190,13 +190,7 @@ httpssynclist() {
 
             # Call recursivly until no more directories are found
             if [ $RECURSIVE_ARG -eq 1 ]; then
-                local recursivecall=$(httpssynclist "$url" "$dst" "${querylist[*]}" | tr -d '\0')
-
-                # Only add to collection if array is populated
-                local is_array=$(declare -p recursivecall | grep '^declare -a')
-                if [ -z "$is_array" ]; then
-                    filelist+=($recursivecall)
-                fi
+                httpssynclist "$url" "$dst" "${querylist[*]}" >&2
             fi
         # As long as it is not ending slash, assume as file
         elif [ "${href: -1:1}" != $'/' ]; then
@@ -268,7 +262,7 @@ httpssynclist() {
 \"${modified}\""
                     # Add to the array
                     filentry=("$url" "$dst" "$bytes" "$href")
-                    filelist+=($filentry)
+                    SYNCLIST+=($filentry)
                 else
                     debug "Not a file \"$url\", ignoring path"
                 fi
@@ -286,12 +280,9 @@ httpssynclist() {
         do
             # Add to the array
             filentry=("" "$localfile" "" "")
-            filelist+=($filentry)
+            SYNCLIST+=($filentry)
         done
     fi
-
-    # Return array
-    return "${filelist[@]}"
 }
 
 # Read all the exclude patterns from the file
@@ -303,7 +294,9 @@ fi
 if [ "${SRC:-1:1}" != "/" ]; then SRC="${SRC}/"; debug "Added a \"/\" to the source: $SRC"; fi
 if [ "${DST:-1:1}" != "/" ]; then DST="${DST}/"; debug "Added a \"/\" to the destination: $DST"; fi
 
-RESULTS=$(httpssynclist "$SRC" "$DST" "${EXCLUDES[*]}")
+info "Synchronization from \"${SRC}\" to \"${DST}\" starting"
+httpssynclist "$SRC" "$DST" "${EXCLUDES[*]}" >&2
+info "Synchronization finished"
 
 # If we only suppose to print the transfer size
 if [ $STATS -eq 1 ]; then
