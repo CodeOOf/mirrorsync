@@ -15,6 +15,7 @@ DELETE_EXCLUDE=0
 EXCLUDES=()
 EXCLUDE_FILE=""
 HUMAN_READABLE=0
+IGNORE_EXT=0
 LIST_ONLY=0
 PROGRESS_ARG=0
 RECURSIVE_ARG=0
@@ -63,6 +64,9 @@ Arguments:
   -hr, --human-readable
     Outputs the numbers in human-readable format
 
+  -ie, --ignore-external
+    Ignores any files that are linked outside of the current domain
+
   -l, --list-only
     Only outputs what files that would change
 
@@ -93,6 +97,7 @@ while [ "$#" -gt 0 ]; do
         --exclude-file) EXCLUDE_FILE="$2";;
         -h|--help) usage; exit 0;;
         -hr|--human-readable) HUMAN_READABLE=1;;
+        -ie|--ignore-external) IGNORE_EXT=1;;
         -l|--list-only) LIST_ONLY=1;;
         --progress) PROGRESS_ARG=1;;
         -r|--recursive) RECURSIVE_ARG=1;;
@@ -190,7 +195,7 @@ httpssynclist() {
                 # Only add to collection if array is populated
                 local is_array=$(declare -p recursivecall | grep '^declare -a')
                 if [ -z "$is_array" ]; then
-                    filelist+=$recursivecall
+                    filelist+=($recursivecall)
                 fi
             fi
         # As long as it is not ending slash, assume as file
@@ -208,7 +213,7 @@ httpssynclist() {
                 if [ ! -z "$location" ]; then
                     info "Found file at another domain \"${location}\" for \"${dst}\""
                     header=$(curl -sI "$location")
-                    url=$location
+                    url="$location"
                 fi
 
                 # Extract file information
@@ -253,6 +258,11 @@ httpssynclist() {
                         fi
                     done
 
+                    if [ $IGNORE_EXT -eq 1 ] && [ ! -z "$location" ]; then 
+                        info "Local file \"${dst}\" has changed and is found at another remote domain, to be ignored";
+                        continue
+                    fi
+
                     local filesize=$(echo $bytes | numfmt --to=iec-i)
                     debug "Added a file of size ${filesize}B from \"${url}\" to the list, it was last modifed 
 \"${modified}\""
@@ -281,7 +291,7 @@ httpssynclist() {
     fi
 
     # Return array
-    echo "${filelist[*]}"
+    return "${filelist[@]}"
 }
 
 # Read all the exclude patterns from the file
