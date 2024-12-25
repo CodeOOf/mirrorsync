@@ -92,7 +92,7 @@ while [ "$#" -gt 0 ]; do
         --delete-after) DELETE_AFTER=1;;
         --delete-excluded) DELETE_EXCLUDE=1;;
         --exclude) EXCLUDES=($2);;
-        --exclude-file) EXCLUDE_FILE="$2";;
+        --exclude-from) EXCLUDE_FILE="$2";;
         -h|--help) usage; exit 0;;
         -hr|--human-readable) HUMAN_READABLE=1;;
         -ie|--ignore-external) IGNORE_EXT=1;;

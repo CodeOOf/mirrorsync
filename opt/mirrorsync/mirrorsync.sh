@@ -372,7 +372,7 @@ do
             updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_httpupdate.log"
 
             # First validate that there is enough space on the disk
-            transferbytes=$(HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/" "${excludequeries[*]}")
+            transferbytes=$($HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/")
 
             # Convert bytes into human readable
             transfersize=$(echo $transferbytes | numfmt --to=iec-i)
@@ -389,7 +389,7 @@ do
             "${opts[*]}"
 
             # Start updating
-            HTTPSYNC "${opts[@]}" "${remotesrc}/" "${mirrordst}/" "${excludequeries[*]}" >> "$updatelogfile" 2>&1
+            $HTTPSYNC "${opts[@]}" "${remotesrc}/" "${mirrordst}/" >> "$updatelogfile" 2>&1
 
             # Finished
             info "Finished updating mirror \"${mirrorname}\", log found at \"${updatelogfile}\""
