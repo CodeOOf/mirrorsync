@@ -60,6 +60,7 @@ The default file structure that these instructions will lead to:
 │       ├── .version
 │       ├── repo1_exclude.txt
 │       ├── repo2_exclude.txt
+│       ├── httpsync.sh
 │       └── mirrorsync.sh
 └── var
     └── log

@@ -107,15 +107,15 @@ do
 done
 # Verify that there are items left
 if [ ${#REPOCONFIGS[@]} -eq 0 ]; then
-    fatal_stdout "The directory \"$REPOCONFIGDIR\" is empty or contains no config files, please provide repository 
-config files that this script can work with"
+    fatal_stdout "The directory \"$REPOCONFIGDIR\" is empty or contains no config files, please provide repository " \
+    "config files that this script can work with"
 fi
 
 # Verify that current path is writable
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 if [ ! -w "$SCRIPTDIR" ]; then
-    fatal_stdout "The directory where this script is located is not writable for this user. This is required for the 
-lockfile to avoid multiple simultaneous runs of the script"
+    fatal_stdout "The directory where this script is located is not writable for this user. This is required for the " \
+    "lockfile to avoid multiple simultaneous runs of the script"
 fi
 VERSION=$(cat ${SCRIPTDIR}/.version)
 HTTPSYNC="${SCRIPTDIR}/httpsync.sh"
@@ -352,30 +352,32 @@ do
             info "Finished updating mirror \"${mirrorname}\", log found at \"${updatelogfile}\""
             ;;
         $HTTP_PORT|$HTTPS_PORT)
-
-            # TODO: First use httpsync to get a list of out of sync files
-
-            TEST=$(httpsync "${remotesrc}/" "${mirrordst}/" "${excludequeries[*]}")
-            echo "Recursive filelist: ${TEST[*]}"
-
             # Set variables for the run
-            opts=(-mpEk --no-parent --convert-links --random-wait robots=off --reject="$(tr '\n' ',' < $excludefile)")
+            opts=(-r --delete-excluded --exclude-from=$excludefile)
             updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_httpupdate.log"
 
             # First validate that there is enough space on the disk
-            remote_repobytes=$(wget "${opts[@]}" --spider  "${remotesrc}/" | grep -i "Length" | \
-            gawk '{sum+=$2}END{print sum}')
-            transferbytes=$(expr $remote_repobytes - $repobytes)
+            transferbytes=$(HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/" "${excludequeries[*]}")
+
+            # Convert bytes into human readable
             transfersize=$(echo $transferbytes | numfmt --to=iec-i)
             info "This synchronization will require ${transfersize}B on local storage"
-
+                
             if [ $transferbytes -gt $availablebytes ]; then
-                error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B available." \
-                "Cannot update this mirror continuing with the next"
+                error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B " \
+                "available. Cannot update this mirror continuing with the next"
                 continue
             fi
 
+            # header for the new log fil
+            print_header_updatelog "http" "$remotesrc" "$mirrordst" "$transfersize" "$availablesize" "$updatelogfile" \
+            "${opts[*]}"
 
+            # Start updating
+            HTTPSYNC "${opts[@]}" "${remotesrc}/" "${mirrordst}/" "${excludequeries[*]}" >> "$updatelogfile" 2>&1
+
+            # Finished
+            info "Finished updating mirror \"${mirrorname}\", log found at \"${updatelogfile}\""
             ;;
         *)
             warning "The protocol defined for \"${remotesrc}\" is invalid, cannot update this mirror continuing with " \

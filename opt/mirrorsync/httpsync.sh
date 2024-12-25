@@ -17,7 +17,6 @@ EXCLUDE_FILE=""
 HUMAN_READABLE=0
 IGNORE_EXT=0
 LIST_ONLY=0
-PROGRESS_ARG=0
 RECURSIVE_ARG=0
 STATS=0
 VERBOSE_ARG=0
@@ -72,9 +71,6 @@ Arguments:
   -l, --list-only
     Only outputs what files that would change
 
-  --progress
-    Outputs the synchronization progress
-
   -r, --recursive
     Recurse into directories. 
 
@@ -101,7 +97,6 @@ while [ "$#" -gt 0 ]; do
         -hr|--human-readable) HUMAN_READABLE=1;;
         -ie|--ignore-external) IGNORE_EXT=1;;
         -l|--list-only) LIST_ONLY=1;;
-        --progress) PROGRESS_ARG=1;;
         -r|--recursive) RECURSIVE_ARG=1;;
         --stats) STATS=1;;
         -v|--verbose) VERBOSE_ARG=1;;
@@ -210,7 +205,8 @@ httpssynclist() {
                 fi
 
                 # Extract file information
-                local bytes_src=$(echo "${header[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
+                local bytes_src=$(echo "${header[*]}" | grep -i "Content-Length" | awk '{print $2}' \
+                | tr -cd '[:digit:].')
                 local modified_header=$(echo "${header[*]}" | grep -i "Last-modified" \
                 | awk -v 'IGNORECASE=1' -F'Last-modified:' '{print $2}')
                 if [ ! -z "${modified_header}" ]; then 
@@ -293,12 +289,12 @@ fi
 if [ "${SRC:-1:1}" != "/" ]; then SRC="${SRC}/"; debug "Added a \"/\" to the source: $SRC"; fi
 if [ "${DST:-1:1}" != "/" ]; then DST="${DST}/"; debug "Added a \"/\" to the destination: $DST"; fi
 
-info "Synchronization from \"${SRC}\" to \"${DST}\" starting"
+info "Validating files from remote \"${SRC}\" against \"${DST}\""
 httpssynclist "$SRC" "$DST" "${EXCLUDES[*]}" >&2
-info "Remote source scraping finished"
+info "Validation finished"
 
 if [ ${#SYNCLIST[@]} -eq 0 ]; then
-    info "No relevant files found at \"${SRC}\", done"
+    log "No relevant files found at \"${SRC}\", done"
     exit 0
 fi
 
@@ -334,6 +330,7 @@ if [ $LIST_ONLY -eq 1 ]; then
     exit 0
 fi
 
+info "Synchronization progress starting"
 # Main Sync
 for item in "${SYNCLIST[@]}"
 do
@@ -355,5 +352,5 @@ do
     fi
 done
 
-info "Done"
+log "Synchronization process finished"
 exit 0
