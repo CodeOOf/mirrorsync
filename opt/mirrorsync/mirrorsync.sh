@@ -17,7 +17,7 @@ VERBOSE=""
 HTTP_PORT=80
 HTTPS_PORT=443
 RSYNC_PORT=873
-CONNECTIONTEST_TIMEOUT=2
+TIMEOUT=2
 STDOUT=0
 VERBOSE_ARG=0
 DEBUG_ARG=0
@@ -254,7 +254,7 @@ do
         domain=$(echo $remote | awk -F[/:] '{print $4}' | sed -z 's/[[:space:]]*$//')
         tcp_str="/dev/tcp/${domain}/${remoteport}"
         debug "Connection test string to be used: $tcp_str"
-        timeout $CONNECTIONTEST_TIMEOUT bash -c "<$tcp_str"
+        timeout $TIMEOUT bash -c "<$tcp_str" 2>/dev/null
         
         test_response=$?
         debug "Test response code from connection test: $test_response"
