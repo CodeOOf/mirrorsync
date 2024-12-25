@@ -35,7 +35,7 @@ warning() { log "Warning: $*" >&2; }
 error() { log "Error: $*" >&2; }
 fatal() { error "$*, exiting"; exit 1; }
 error_argument() { error "$*, exiting"; usage >&2; exit 1; }
-progress() { printf "%s\n" -1 "$*" >&2; }
+progress() { printf "%s\n" "$*" >&2; }
 
 # Arguments Help
 usage() {
