@@ -297,12 +297,17 @@ info "Synchronization from \"${SRC}\" to \"${DST}\" starting"
 httpssynclist "$SRC" "$DST" "${EXCLUDES[*]}" >&2
 info "Remote source scraping finished"
 
+if [ ${#SYNCLIST[@]} -eq 0 ]; then
+    info "No relevant files found at \"${SRC}\", done"
+    exit 0
+fi
+
 # If we only suppose to print the transfer size
 if [ $STATS -eq 1 ]; then
     transfer_size=0
     for item in "${SYNCLIST[@]}"
     do
-        syncinfo=($(tr ',' ' ' < $item))
+        IFS=',' read -r -a syncinfo <<< "$item"
         if [ ! -z "${syncinfo[0]}" ]; then transfer_size+=$syncinfo[2]; fi
     done
 
@@ -317,9 +322,9 @@ fi
 if [ $LIST_ONLY -eq 1 ]; then
     for item in "${SYNCLIST[@]}"
     do
-        syncinfo=($(tr ',' ' ' < $item))
+        IFS=',' read -r -a syncinfo <<< "$item"
         if [ ! -z "${syncinfo[0]}" ]; then 
-            progress "*NEW* ${FILE[1]}"
+            progress "*NEW* ${syncinfo[1]}"
         else
             progress "Remove ${syncinfo[1]}"
         fi
@@ -332,7 +337,7 @@ fi
 # Main Sync
 for item in "${SYNCLIST[@]}"
 do
-    syncinfo=($(tr ',' ' ' < $item))
+    IFS=',' read -r -a syncinfo <<< "$item"
     if [ ! -z "${syncinfo[0]}" ]; then 
         progress "Transfering ${syncinfo[1]}"
         if [ $DELETE_AFTER -eq 1 ]; then
