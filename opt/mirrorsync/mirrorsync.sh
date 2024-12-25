@@ -192,7 +192,7 @@ do
     minminor=0
     remotes=()
     remotesrc=""
-    port=0
+    remoteport=0
 
     source $repoconfig
 
@@ -224,19 +224,20 @@ do
     # Verify network connectivity against the remote and the select first available
     for remote in "${remotes[@]}"
     do
+        debug "Start validating remote entry \"${remote}\""
         # Check the protocol defined in the begining of the url and map it against a port number
         case "${remote%%:*}" in
             rsync)
-                debug "Using rsync port"
-                port=$RSYNC_port
+                debug "Connection against this remote is done via \"rsync\" port: $RSYNC_PORT"
+                remoteport=$RSYNC_PORT
                 ;;
             https)
-                debug "Using https port"
-                port=$HTTPS_port
+                debug "Connection against this remote is done via \"https\" port: $HTTPS_PORT"
+                remoteport=$HTTPS_PORT
                 ;;
             http)
-                debug "Using http port"
-                port=$HTTP_port
+                debug "Connection against this remote is done via \"http\" port: $HTTP_PORT"
+                remoteport=$HTTP_PORT
                 ;;
             *)
                 error "The remote \"${remote}\" contains a invalid protocol"
@@ -244,14 +245,14 @@ do
                 ;;
         esac
 
-        if [ -z "$port" ]; then
-            error "Could not extract protocol from the remote \"${remote}\""
+        if [ -z "$remoteport" ]; then
+            error "Could not extract port number for the remote \"${remote}\""
             continue
         fi
         
         # Make a connection test against the url on that port to validate connectivity
         domain=$(echo $remote | awk -F[/:] '{print $4}' | sed -z 's/[[:space:]]*$//')
-        tcp_str="/dev/tcp/${domain}/${port}"
+        tcp_str="/dev/tcp/${domain}/${remoteport}"
         debug "Connection test string to be used: $tcp_str"
         timeout $CONNECTIONTEST_TIMEOUT bash -c "<$tcp_str"
         
@@ -279,7 +280,7 @@ do
     checkresult=""
     if [ -z "$filelistfile" ]; then
         info "The variable \"filelistfile\" is empty or not defined for \"${repoconfig}\""
-    elif [ "$port" == "$RSYNC_port" ]; then
+    elif [ "$remoteport" == "$RSYNC_PORT" ]; then
         checkresult=$(rsync --no-motd --dry-run --out-format="%n" "${remotesrc}/$filelistfile" \
         "${mirrordst}/$filelistfile")
     else
@@ -335,7 +336,7 @@ do
     repobytes=$(du -sB1 "${mirrordst}/" | awk 'NR>0{print $1}' | tr -cd '[:digit:].')
 
     # Depending on what protocol the url has the approch on syncronizing the repo is different
-    case $port in
+    case $remoteport in
         $RSYNC_PORT)
             # Set variables for the run
             opts=(-vrlptDSH --delete-excluded --delete-delay --delay-updates --exclude-from=$excludefile)
