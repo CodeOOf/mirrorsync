@@ -255,7 +255,8 @@ do
 
     # If no source url is defined it means we did not find a valid remote url that we can connect to now
     if [ -z "$remotesrc" ]; then
-        error "No connection with any remote found in \"${repoconfig}\", cannot update this mirror continuing with the next"
+        error "No connection with any remote found in \"${repoconfig}\", cannot update this mirror continuing with " \
+        "the next"
         continue
     fi
 
@@ -265,16 +266,18 @@ do
     if [ -z "$filelistfile" ]; then
         info "The variable \"filelistfile\" is empty or not defined for \"${repoconfig}\""
     elif [ "$port" == "$RSYNC_port" ]; then
-        checkresult=$(rsync --no-motd --dry-run --out-format="%n" "${remotesrc}/$filelistfile" "${mirrordst}/$filelistfile")
+        checkresult=$(rsync --no-motd --dry-run --out-format="%n" "${remotesrc}/$filelistfile" \
+        "${mirrordst}/$filelistfile")
     else
-        warning "The protocol used with \"${remotesrc}\" has not yet been implemented. Move another protocol higher up in 
-list of remotes to solve this at the moment. Cannot update this mirror continuing with the next"
+        warning "The protocol used with \"${remotesrc}\" has not yet been implemented. Move another protocol higher " \
+        "up in list of remotes to solve this at the moment. Cannot update this mirror continuing with the next"
         continue
     fi
 
     # Check the results of the filelist against the local
     if [ -z "$checkresult" ] && [ ! -z "$filelistfile" ]; then
-        info "The filelist is unchanged at \"${remotesrc}\", no update required for this mirror continuing with the next"
+        info "The filelist is unchanged at \"${remotesrc}\", no update required for this mirror continuing with the " \
+        "next"
         continue
     fi
 
@@ -325,21 +328,22 @@ list of remotes to solve this at the moment. Cannot update this mirror continuin
             updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_rsyncupdate.log"
 
             # First validate that there is enough space on the disk
-            transferbytes=$(rsync "${opts[@]}" --dry-run --stats "${remotesrc}/" "${mirrordst}/" | grep -i "Total transferred" \
-            | sed 's/[^0-9]*//g')
+            transferbytes=$(rsync "${opts[@]}" --dry-run --stats "${remotesrc}/" "${mirrordst}/" | \
+            grep -i "Total transferred" | sed 's/[^0-9]*//g')
 
             # Convert bytes into human readable
             transfersize=$(echo $transferbytes | numfmt --to=iec-i)
             info "This synchronization will require ${transfersize}B on local storage"
                 
             if [ $transferbytes -gt $availablebytes ]; then
-                error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B available. 
-Cannot update this mirror continuing with the next"
+                error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B " \
+                "available. Cannot update this mirror continuing with the next"
                 continue
             fi
 
             # header for the new log fil
-            print_header_updatelog "rsync" "$remotesrc" "$mirrordst" "$transfersize" "$availablesize" "$updatelogfile" "${opts[*]}"
+            print_header_updatelog "rsync" "$remotesrc" "$mirrordst" "$transfersize" "$availablesize" "$updatelogfile" \
+            "${opts[*]}"
 
             # Start updating
             rsync "${opts[@]}" "${remotesrc}/" "${mirrordst}/" >> "$updatelogfile" 2>&1
@@ -359,21 +363,23 @@ Cannot update this mirror continuing with the next"
             updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_httpupdate.log"
 
             # First validate that there is enough space on the disk
-            remote_repobytes=$(wget "${opts[@]}" --spider  "${remotesrc}/" | grep -i "Length" | gawk '{sum+=$2}END{print sum}')
+            remote_repobytes=$(wget "${opts[@]}" --spider  "${remotesrc}/" | grep -i "Length" | \
+            gawk '{sum+=$2}END{print sum}')
             transferbytes=$(expr $remote_repobytes - $repobytes)
             transfersize=$(echo $transferbytes | numfmt --to=iec-i)
             info "This synchronization will require ${transfersize}B on local storage"
 
             if [ $transferbytes -gt $availablebytes ]; then
-                error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B available. 
-Cannot update this mirror continuing with the next"
+                error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B available." \
+                "Cannot update this mirror continuing with the next"
                 continue
             fi
 
 
             ;;
         *)
-            warning "The protocol defined for \"${remotesrc}\" is invalid, cannot update this mirror continuing with the next"
+            warning "The protocol defined for \"${remotesrc}\" is invalid, cannot update this mirror continuing with " \
+            "the next"
             ;;
     esac
 done

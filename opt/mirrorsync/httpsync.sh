@@ -25,6 +25,7 @@ POSITIONAL_ARGS=()
 SRC=""
 DST=""
 SYNCLIST=()
+DATE_FORMAT="+%Y-%m-%d %H:%M:%S"
 
 # Log functions
 log() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
@@ -150,7 +151,6 @@ httpssynclist() {
     local querylist=($3)
     local rootqueries=()
     local localfiles=(${localpath}/*)
-    local filentry=()
 
     # Extract all root items to exlude
     for index in "${!querylist[@]}"
@@ -194,9 +194,6 @@ httpssynclist() {
             fi
         # As long as it is not ending slash, assume as file
         elif [ "${href: -1:1}" != $'/' ]; then
-            local bytes=""
-            local modified=""
-
             # Verify that url is OK
             local http_status=$(curl -o /dev/null -sIw '%{http_code}' "$url")
             if [ $http_status -eq 200 ]; then
@@ -213,27 +210,27 @@ httpssynclist() {
                 fi
 
                 # Extract file information
-                bytes=$(echo "${header[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
-                local modified_str=$(echo "${header[*]}" | grep -i "Last-modified" \
+                local bytes_src=$(echo "${header[*]}" | grep -i "Content-Length" | awk '{print $2}' | tr -cd '[:digit:].')
+                local modified_header=$(echo "${header[*]}" | grep -i "Last-modified" \
                 | awk -v 'IGNORECASE=1' -F'Last-modified:' '{print $2}')
-                if [ ! -z "${modified_str}" ]; then 
-                    modified=$(date -d "$modified_str")
+                if [ ! -z "${modified_header}" ]; then 
+                    modified_src=$(date -d "$modified_header")
                 else
                     debug "No modification date found for \"${url}\""
                 fi
 
-                if [ ! -z "$bytes" ] && [ $bytes -gt 0 ]; then
+                if [ ! -z "$bytes_src" ] && [ $bytes_src -gt 0 ]; then
                     # Try to find this file at local destination
                     for index in "${!localfiles[@]}"
                     do
                         if [ "${localfiles[$index]}" == "$dst" ]; then
                             unset localfiles[$index]
                             # Get local file information
-                            local bytes_local=$(du -k "$dst" | cut -f1)
-                            local modified_local=$(date -r "$dst")
+                            local bytes_dst=$(du -k "$dst" | cut -f1)
+                            local modified_dst=$(date -r "$dst")
 
                             # Check if file is changed based on date if date was extracted
-                            if [ ! -z $modified ] && [ $modified > $modified_local ]; then
+                            if [ ! -z $modified_src ] && [ $modified_src > $modified_dst ]; then
                                 info "Local file \"${dst}\" is unchanged at remote based on date"
 
                                 # Continue with the next item in the loop above this inner as the file is unchanged
@@ -241,7 +238,7 @@ httpssynclist() {
                             fi
 
                             # If we cannot test by date, test with size
-                            if [ $bytes -eq $bytes_local ]; then 
+                            if [ $bytes_src -eq $bytes_dst ]; then 
                                 info "Local file \"${dst}\" is unchanged at remote based on size"
 
                                 # Continue with the next item in the loop above this inner as the file is unchanged
@@ -259,12 +256,13 @@ httpssynclist() {
                         continue
                     fi
 
-                    local filesize=$(echo $bytes | numfmt --to=iec-i)
-                    debug "Added a file of size ${filesize}B from \"${url}\" to the list, it was last modifed 
-\"${modified}\""
+                    local modified_str=$(date -d "$modified_src" "$DATE_FORMAT")
+                    local filesize=$(echo $bytes_src | numfmt --to=iec-i)
+
+                    debug "Added a file of size ${filesize}B from \"${url}\" to the list, it was last modifed " \
+                          "\"${modified_str}\""
                     # Add to the array
-                    filentry=("$url" "$dst" "$bytes" "$href")
-                    SYNCLIST+=($filentry)
+                    SYNCLIST+=("${url},${dst},${bytes_src},${href}")
                 else
                     debug "Not a file \"$url\", ignoring path"
                 fi
@@ -281,8 +279,7 @@ httpssynclist() {
         for localfile in "${localfiles[@]}"
         do
             # Add to the array
-            filentry=("" "$localfile" "" "")
-            SYNCLIST+=($filentry)
+            SYNCLIST+=(",${localfile},,")
         done
     fi
 }
@@ -303,9 +300,10 @@ info "Remote source scraping finished"
 # If we only suppose to print the transfer size
 if [ $STATS -eq 1 ]; then
     transfer_size=0
-    for fileinfo in "${SYNCLIST[@]}"
+    for item in "${SYNCLIST[@]}"
     do
-        if [ ! -z "${fileinfo[0]}" ]; then transfer_size+=$fileinfo[2]; fi
+        syncinfo=($(tr ',' ' ' < $item))
+        if [ ! -z "${syncinfo[0]}" ]; then transfer_size+=$syncinfo[2]; fi
     done
 
     # Convert the output to human readable numbers
@@ -317,12 +315,13 @@ fi
 
 # If we only suppose to print the list
 if [ $LIST_ONLY -eq 1 ]; then
-    for fileinfo in "${SYNCLIST[@]}"
+    for item in "${SYNCLIST[@]}"
     do
-        if [ ! -z "${fileinfo[0]}" ]; then 
+        syncinfo=($(tr ',' ' ' < $item))
+        if [ ! -z "${syncinfo[0]}" ]; then 
             progress "*NEW* ${FILE[1]}"
         else
-            progress "Remove ${fileinfo[1]}"
+            progress "Remove ${syncinfo[1]}"
         fi
     done
 
@@ -331,22 +330,23 @@ if [ $LIST_ONLY -eq 1 ]; then
 fi
 
 # Main Sync
-for fileinfo in "${SYNCLIST[@]}"
+for item in "${SYNCLIST[@]}"
 do
-    if [ ! -z "${fileinfo[0]}" ]; then 
-        progress "Transfering ${fileinfo[1]}"
+    syncinfo=($(tr ',' ' ' < $item))
+    if [ ! -z "${syncinfo[0]}" ]; then 
+        progress "Transfering ${syncinfo[1]}"
         if [ $DELETE_AFTER -eq 1 ]; then
-            tmpfile="/tmp/${fileinfo[3]}"
-            curl "${fileinfo[0]}" --output "$tmpfile" 2>&1
-            rm "${fileinfo[1]}" 2>&1
-            mv "$tmpfile" "${fileinfo[1]}" 2>&1
+            tmpfile="/tmp/${syncinfo[3]}"
+            curl "${syncinfo[0]}" --output "$tmpfile" 2>&1
+            rm "${syncinfo[1]}" 2>&1
+            mv "$tmpfile" "${syncinfo[1]}" 2>&1
         else
-            rm "${fileinfo[1]}" 2>&1
-            curl "${fileinfo[0]}" --output "${fileinfo[1]}" 2>&1
+            rm "${syncinfo[1]}" 2>&1
+            curl "${syncinfo[0]}" --output "${syncinfo[1]}" 2>&1
         fi
     else
-        progress "Removing ${fileinfo[1]}"
-        rm -r "${fileinfo[1]}"
+        progress "Removing ${syncinfo[1]}"
+        rm -r "${syncinfo[1]}"
     fi
 done
 
