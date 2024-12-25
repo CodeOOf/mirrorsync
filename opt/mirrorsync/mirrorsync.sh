@@ -17,6 +17,7 @@ VERBOSE=""
 HTTP_PORT=80
 HTTPS_PORT=443
 RSYNC_PORT=873
+CONNECTIONTEST_TIMEOUT=2
 STDOUT=0
 VERBOSE_ARG=0
 DEBUG_ARG=0
@@ -226,24 +227,37 @@ do
         # Check the protocol defined in the begining of the url and map it against a port number
         case "${remote%%:*}" in
             rsync)
+                debug "Using rsync port"
                 port=$RSYNC_port
                 ;;
             https)
+                debug "Using https port"
                 port=$HTTPS_port
                 ;;
             http)
+                debug "Using http port"
                 port=$HTTP_port
                 ;;
             *)
-                error "The remote path \"${remote}\" contains a invalid protocol"
+                error "The remote \"${remote}\" contains a invalid protocol"
                 continue
                 ;;
         esac
+
+        if [ -z "$port" ]; then
+            error "Could not extract protocol from the remote \"${remote}\""
+            continue
+        fi
         
         # Make a connection test against the url on that port to validate connectivity
         domain=$(echo $remote | awk -F[/:] '{print $4}' | sed -z 's/[[:space:]]*$//')
-        (echo > /dev/tcp/${domain}/${port}) &>/dev/null
-        if [ $? -eq 0 ]; then
+        tcp_str="/dev/tcp/${domain}/${port}"
+        debug "Connection test string to be used: $tcp_str"
+        timeout $CONNECTIONTEST_TIMEOUT bash -c "<$tcp_str"
+        
+        test_response=$?
+        debug "Test response code from connection test: $test_response"
+        if [ $test_response -eq 0 ]; then
             info "Connection valid for \"${remote}\""
             remotesrc=$remote
             break

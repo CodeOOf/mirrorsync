@@ -310,7 +310,7 @@ if [ $STATS -eq 1 ]; then
     # Convert the output to human readable numbers
     if [ $HUMAN_READABLE -eq 1 ]; then transfer_size=$(echo $transfer_size | numfmt --to=iec-i); fi
 
-    printf "%s" "$transfer_size" >&2
+    printf "%s\n" "$transfer_size" >&2
     exit 0
 fi
 
