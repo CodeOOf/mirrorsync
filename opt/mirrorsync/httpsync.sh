@@ -304,13 +304,13 @@ if [ $STATS -eq 1 ]; then
     for item in "${SYNCLIST[@]}"
     do
         IFS=',' read -r -a syncinfo <<< "$item"
-        if [ ! -z "${syncinfo[0]}" ]; then transfer_size+=$syncinfo[2]; fi
+        if [ ! -z "${syncinfo[0]}" ]; then transfer_size=$(expr $transfer_size + ${syncinfo[2]}); fi
     done
 
     # Convert the output to human readable numbers
-    if [ $HUMAN_READABLE -eq 1]; then transfer_size=$(echo $transfer_size | numfmt --to=iec-i); fi
+    if [ $HUMAN_READABLE -eq 1 ]; then transfer_size=$(echo $transfer_size | numfmt --to=iec-i); fi
 
-    printf "%s" "$transfer_size" >%1
+    printf "%s" "$transfer_size" >&2
     exit 0
 fi
 
