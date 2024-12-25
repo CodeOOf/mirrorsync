@@ -90,7 +90,7 @@ while [ "$#" -gt 0 ]; do
         --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
         -d|--debug) DEBUG_ARG=1;;
         --delete-after) DELETE_AFTER=1;;
-        --delete-exclude) DELETE_EXCLUDE=1;;
+        --delete-excluded) DELETE_EXCLUDE=1;;
         --exclude) EXCLUDES=($2);;
         --exclude-file) EXCLUDE_FILE="$2";;
         -h|--help) usage; exit 0;;
