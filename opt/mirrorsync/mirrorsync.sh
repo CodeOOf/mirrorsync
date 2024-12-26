@@ -55,10 +55,14 @@ progress() {
     local count=$1
     local total=$2
     local progress=0
+
     # Calculate current state
-    if [ $count -gt 0 ]; then progress=$(((count*100/total*100)/100)); fi
-    local donecount=$(((total*BARLENGTH)/100))
+    if [ $count -gt 0 ]; then progress=$(((count*100)/total)); fi
+    local donecount=$(((count*BARLENGTH)/total))
     local leftcount=$((BARLENGTH-donecount))
+
+    debug "Current progress counter ${count}/${total}: ${progress}%"
+    debug "Progress fill is ${donecount}/${leftcount}"
 
     # Only show the progressbar if we know the stdout is empty
     if [ $VERBOSE_ARG -eq 0 ] && [ $DEBUG_ARG -eq 0 ]; then
@@ -68,6 +72,7 @@ progress() {
 
         # Display thge final progressbar
         printf "\rProgress: [${donefill// /#}${leftfill// /-}] ${progress}%%"
+        if [ $leftcount -eq 0 ]; then printf "\n"; fi
     else
         log_stdout "Progress: ${progress}%"
     fi
@@ -434,7 +439,7 @@ do
             updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_httpupdate.log"
 
             # First validate that there is enough space on the disk
-            transferbytes=$($HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/")
+            transferbytes=$($HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/" | sed 's/[^0-9]*//g')
 
             # Validate that the recived size is a number and anything
             if ! [[ $transferbytes =~ $INTEGERCHECK ]]; then
