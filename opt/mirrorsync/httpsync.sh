@@ -84,15 +84,12 @@ EOF
 
 # Arguments Parser
 while [ "$#" -gt 0 ]; do
-    arg=$1
     case $1 in
-        # Convert "--opt=value" to --opt "value"
-        --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
         -d|--debug) DEBUG_ARG=1;;
         --delete-after) DELETE_AFTER=1;;
         --delete-excluded) DELETE_EXCLUDE=1;;
         --exclude) EXCLUDES=($2);;
-        --exclude-from) EXCLUDE_FILE="$2";;
+        --exclude-from=*) EXCLUDE_FILE="${1#*=}";;
         -h|--help) usage; exit 0;;
         -hr|--human-readable) HUMAN_READABLE=1;;
         -ie|--ignore-external) IGNORE_EXT=1;;
@@ -106,7 +103,7 @@ while [ "$#" -gt 0 ]; do
             POSITIONAL_ARGS+=("$1")
             ;;
     esac
-    shift || error_argument "Option '${arg}' requires a value"
+    shift || error_argument "Option '${1}' requires a value"
 done
 
 # Populate the source and destination
@@ -121,12 +118,16 @@ if [ -z "$DST" ]; then DST=$(pwd); fi
 arraymatch() {
     local queries=($2)
     local value="$1"
+    local value_extra="$value"
 
-    if [ "${1:-1:1}" == "/" ]; then value=${1:0:-1}; fi
+    # If the value starts with "/" remove it
+    if [ "${1:0:1}" == "/" ]; then value=${1:1}; fi
+    # If value ends with "/" then add it as a extra test
+    if [ "${value:0-1}" == "/" ]; then value_extra="${value:0:-1}"; fi
 
     for query in "${queries[@]}"
     do
-        if [[ "$value" == $query ]] || [[ "${1:0:-1}" == $query ]]; then 
+        if [[ "$value" == $query ]] || [[ "$value_extra" == $query ]]; then 
             debug "The value \"${1}\" matched query \"${query}\""; 
             return 0; 
         fi
@@ -172,9 +173,9 @@ httpssynclist() {
             continue
         fi
 
-        # Check if the href ends with slash and not parent or begins with slash
-        if [ "${#href}" -gt 1 ] && [ "${href: -1:1}" == $'/' ]  && 
-        [ "${href: -2:2}" != $"./" ] && [ "${href: 0:1}" != $'/' ]; then
+        # Check if the href ends with slash (to indicate a directory) 
+        # while not being a parent link like "/","./" or "../"
+        if ! [[ "$href" =~ ^\.*\/ ]] && [ "${href:0-1}" == "/" ]; then
             # Find this path in localfiles and remove it
             for index in "${!localfiles[@]}"
             do
@@ -188,7 +189,7 @@ httpssynclist() {
                 httpssynclist "$url" "$dst" "${querylist[*]}" >&2
             fi
         # As long as it is not ending slash, assume as file
-        elif [ "${href: -1:1}" != $'/' ]; then
+        elif [ "${href:0-1}" != "/" ]; then
             # Verify that url is OK
             local http_status=$(curl -o /dev/null -sIw '%{http_code}' "$url")
             if [ $http_status -eq 200 ]; then
@@ -286,8 +287,8 @@ if [ ! -z "$EXCLUDE_FILE" ]; then
 fi
 
 # If the source and destination is not ending with a slash, add it
-if [ "${SRC:-1:1}" != "/" ]; then SRC="${SRC}/"; debug "Added a \"/\" to the source: $SRC"; fi
-if [ "${DST:-1:1}" != "/" ]; then DST="${DST}/"; debug "Added a \"/\" to the destination: $DST"; fi
+if [ "${SRC:0-1}" != "/" ]; then SRC="${SRC}/"; debug "Added a \"/\" to the source: $SRC"; fi
+if [ "${DST:0-1}" != "/" ]; then DST="${DST}/"; debug "Added a \"/\" to the destination: $DST"; fi
 
 info "Validating files from remote \"${SRC}\" against \"${DST}\""
 httpssynclist "$SRC" "$DST" "${EXCLUDES[*]}" >&2

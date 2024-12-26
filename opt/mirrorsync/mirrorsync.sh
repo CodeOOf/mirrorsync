@@ -101,10 +101,7 @@ EOF
 
 # Arguments Parser
 while [ "$#" -gt 0 ]; do
-    arg=$1
     case $1 in
-        # Convert "--opt=value" to --opt "value"
-        --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
         -d|--debug) DEBUG_ARG=1; info_stdout "Debug Mode Activated";;
         -s|--stdout) STDOUT=1; info_stdout "Standard Output Activated";;
         -v|--verbose) VERBOSE_ARG=1; info_stdout "Verbose Mode Activated";;
@@ -113,7 +110,7 @@ while [ "$#" -gt 0 ]; do
         -*) error_argument "Unknown option: '$1'";;
         *) break;;
     esac
-    shift || error_argument "Option '${arg}' requires a value"
+    shift || error_argument "Option '${1}' requires a value"
 done
 
 # Verify config file is readable
@@ -439,11 +436,11 @@ do
             updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_httpupdate.log"
 
             # First validate that there is enough space on the disk
-            transferbytes=$($HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/" | sed 's/[^0-9]*//g')
+            transferbytes=$($HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/" 2>&1)
 
             # Validate that the recived size is a number and anything
             if ! [[ $transferbytes =~ $INTEGERCHECK ]]; then
-                error "Did not receive correct data from rsync, continuing with the next"
+                error "Did not receive correct data from httpsync, continuing with the next"
                 ((++progresscounter))
                 continue
             elif [ $transferbytes -eq 0 ]; then 
