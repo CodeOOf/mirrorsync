@@ -21,6 +21,7 @@ TIMEOUT=2
 STDOUT=0
 VERBOSE_ARG=0
 DEBUG_ARG=0
+BARLENGTH=40
 
 # Log functions for standard output
 log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
@@ -46,6 +47,27 @@ debug() { if [ $DEBUG_ARG -eq 1 ]; then debug_stdout "$*" >&2; fi }
 warning() { log "Warning: $*" >&2; }
 error() { log "Error: $*" >&2; }
 fatal() { error "$*, exiting..."; exit 1; }
+
+# Usage: progress <current count> <total count>
+# ex. progress 1 5
+progress() {
+    # Calculate current state
+    local progress=(${$1}*100/${2}*100)/100
+    local fillcount=(${2}*${BARLENGTH})/100
+    local emptycount=${BARLENGTH}-$fillcount
+
+    # Only show the progressbar if we know the stdout is empty
+    if [ $VERBOSE_ARG -eq 0 ] && [ $DEBUG_ARG -eq 0 ]; then
+        # Create the printf parts
+        local done=${printf "%${fillcount}s"}
+        local left=${printf "%${emptycount}s"}
+
+        # Display thge final progressbar
+        printf "\rProgress: [${done// /#}${left// /-}] ${progress}%%"
+    else
+        log_stdout "Progress: ${progress}%"
+    fi
+}
 
 # Arguments Help
 usage() {
@@ -180,10 +202,14 @@ printf '%s\n' "$$" > "$LOCKFILE"
 
 # Start updating each mirror repo
 log "Synchronization process starting..."
+repocounter=0
+REPOSTOTAL=${#REPOCONFIGS[@]}
 
 for repoconfig in "${REPOCONFIGS[@]}"
 do
+    ((++repocounter))
     info "Now working on repository defined at: $repoconfig"
+    progress "$repocounter" "$REPOSTOTAL"
 
     mirrorname=""
     filelistfile=""
@@ -345,9 +371,16 @@ do
             # First validate that there is enough space on the disk
             transferbytes=$(rsync "${opts[@]}" --dry-run --stats "${remotesrc}/" "${mirrordst}/" | \
             grep -i "Total transferred" | sed 's/[^0-9]*//g')
-
-            # Convert bytes into human readable
             transfersize=$(echo $transferbytes | numfmt --to=iec-i)
+
+            # Validate the transfer size
+            if [ $transferbytes -eq 0 ]; then 
+                info "There is nothing to update for \"${mirrorname}\", continuing with the next"
+                continue
+            elif [ -z "$transfersize" ]; then
+                error "Did not receive correct data from rsync, continuing with the next"
+                continue
+            fi
             info "This synchronization will require ${transfersize}B on local storage"
                 
             if [ $transferbytes -gt $availablebytes ]; then
@@ -373,9 +406,16 @@ do
 
             # First validate that there is enough space on the disk
             transferbytes=$($HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/")
-
-            # Convert bytes into human readable
             transfersize=$(echo $transferbytes | numfmt --to=iec-i)
+
+            # Validate the transfer size
+            if [ $transferbytes -eq 0 ]; then 
+                info "There is nothing to update for \"${mirrorname}\", continuing with the next"
+                continue
+            elif [ -z "$transfersize" ]; then
+                error "Did not receive correct data from httpsync, continuing with the next"
+                continue
+            fi
             info "This synchronization will require ${transfersize}B on local storage"
                 
             if [ $transferbytes -gt $availablebytes ]; then

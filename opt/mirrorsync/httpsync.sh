@@ -304,7 +304,7 @@ if [ $STATS -eq 1 ]; then
     for item in "${SYNCLIST[@]}"
     do
         IFS=',' read -r -a syncinfo <<< "$item"
-        if [ ! -z "${syncinfo[0]}" ]; then transfer_size=$(expr $transfer_size + ${syncinfo[2]}); fi
+        if [ ! -z "${syncinfo[0]}" ]; then ((transfer_size+=${syncinfo[2]})); fi
     done
 
     # Convert the output to human readable numbers
