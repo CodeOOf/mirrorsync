@@ -54,8 +54,9 @@ fatal() { error "$*, exiting..."; exit 1; }
 progress() {
     local count=$1
     local total=$2
+    local progress=0
     # Calculate current state
-    local progress=$(((count*100/total*100)/100))
+    if [ $count -gt 0 ]; then progress=$(((count*100/total*100)/100)); fi
     local donecount=$(((total*BARLENGTH)/100))
     local leftcount=$((BARLENGTH-donecount))
 
