@@ -22,6 +22,7 @@ STDOUT=0
 VERBOSE_ARG=0
 DEBUG_ARG=0
 BARLENGTH=40
+INTEGERCHECK='^[0-9]+$'
 
 # Log functions for standard output
 log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
@@ -136,6 +137,11 @@ if [ ${#REPOCONFIGS[@]} -eq 0 ]; then
     "config files that this script can work with"
 fi
 
+# Progress counter data
+progresscounter=0
+REPOSTOTAL=${#REPOCONFIGS[@]}
+PROGRESSTOTAL=((REPOSTOTAL*3+1))
+
 # Verify that current path is writable
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 if [ ! -w "$SCRIPTDIR" ]; then
@@ -204,14 +210,13 @@ printf '%s\n' "$$" > "$LOCKFILE"
 
 # Start updating each mirror repo
 log "Synchronization process starting..."
-repocounter=0
-REPOSTOTAL=${#REPOCONFIGS[@]}
+
+# Initial validation phase done now starts the sync
+progress "$progresscounter" "$PROGRESSTOTAL"
 
 for repoconfig in "${REPOCONFIGS[@]}"
 do
-    ((++repocounter))
     info "Now working on repository defined at: $repoconfig"
-    progress "$repocounter" "$REPOSTOTAL"
 
     mirrorname=""
     filelistfile=""
@@ -230,14 +235,17 @@ do
     # Validate local path is defined and able to write to
     if [ -z "$mirrorname" ]; then
         error "no local directory is defined in \"${repoconfig}\", cannot update this mirror continuing with the next"
+        progresscounter=((progresscounter+3))
         continue
     elif [ ! -w "$mirrordst" ]; then
         error "The path \"${mirrordst}\" is not writable, cannot update this mirror continuing with the next"
+        progresscounter=((progresscounter+3))
         continue
     elif [ ! -d "$mirrordst" ]; then
         warning "A local path for \"${mirrorname}\" does not exists, will create one"
         if [ ! mkdir "$mirrordst" 2>&1 ]; then
             error "The path \"${mirrordst}\" could not be created, cannot update this mirror continuing with the next"
+            progresscounter=((progresscounter+3))
             continue
         fi
     fi
@@ -300,8 +308,14 @@ do
     if [ -z "$remotesrc" ]; then
         error "No connection with any remote found in \"${repoconfig}\", cannot update this mirror continuing with " \
         "the next"
+        progresscounter=((progresscounter+3))
         continue
     fi
+
+    # Mirror sync phase 1 complete
+    # Extract a remote to work with
+    ((++progresscounter))
+    progress "$progresscounter" "$PROGRESSTOTAL"
 
     # Many mirrors provide a filelist that is much faster to validate against first and takes less requests, 
     # So we start with that
@@ -314,6 +328,7 @@ do
     else
         warning "The protocol used with \"${remotesrc}\" has not yet been implemented. Move another protocol higher " \
         "up in list of remotes to solve this at the moment. Cannot update this mirror continuing with the next"
+        progresscounter=((progresscounter+2))
         continue
     fi
 
@@ -321,6 +336,7 @@ do
     if [ -z "$checkresult" ] && [ ! -z "$filelistfile" ]; then
         info "The filelist is unchanged at \"${remotesrc}\", no update required for this mirror continuing with the " \
         "next"
+        progresscounter=((progresscounter+2))
         continue
     fi
 
@@ -363,6 +379,11 @@ do
     availablesize=$(echo $availablebytes | numfmt --to=iec-i)
     repobytes=$(du -sB1 "${mirrordst}/" | awk 'NR>0{print $1}' | tr -cd '[:digit:].')
 
+    # Mirror sync phase 2 complete
+    # Construct exludelists
+    ((++progresscounter))
+    progress "$progresscounter" "$PROGRESSTOTAL"
+
     # Depending on what protocol the url has the approch on syncronizing the repo is different
     case $remoteport in
         $RSYNC_PORT)
@@ -373,21 +394,25 @@ do
             # First validate that there is enough space on the disk
             transferbytes=$(rsync "${opts[@]}" --dry-run --stats "${remotesrc}/" "${mirrordst}/" | \
             grep -i "Total transferred" | sed 's/[^0-9]*//g')
-            transfersize=$(echo $transferbytes | numfmt --to=iec-i)
 
-            # Validate the transfer size
-            if [ $transferbytes -eq 0 ]; then 
-                info "There is nothing to update for \"${mirrorname}\", continuing with the next"
-                continue
-            elif [ -z "$transfersize" ]; then
+            # Validate that the recived size is a number and anything
+            if ! [[ $transferbytes =~ $INTEGERCHECK ]]; then
                 error "Did not receive correct data from rsync, continuing with the next"
+                ((++progresscounter))
+                continue
+            elif [ $transferbytes -eq 0 ]; then 
+                info "There is nothing to update for \"${mirrorname}\", continuing with the next"
+                ((++progresscounter))
                 continue
             fi
+
+            transfersize=$(echo $transferbytes | numfmt --to=iec-i)
             info "This synchronization will require ${transfersize}B on local storage"
                 
             if [ $transferbytes -gt $availablebytes ]; then
                 error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B " \
                 "available. Cannot update this mirror continuing with the next"
+                ((++progresscounter))
                 continue
             fi
 
@@ -408,21 +433,25 @@ do
 
             # First validate that there is enough space on the disk
             transferbytes=$($HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/")
-            transfersize=$(echo $transferbytes | numfmt --to=iec-i)
 
-            # Validate the transfer size
-            if [ $transferbytes -eq 0 ]; then 
-                info "There is nothing to update for \"${mirrorname}\", continuing with the next"
+            # Validate that the recived size is a number and anything
+            if ! [[ $transferbytes =~ $INTEGERCHECK ]]; then
+                error "Did not receive correct data from rsync, continuing with the next"
+                ((++progresscounter))
                 continue
-            elif [ -z "$transfersize" ]; then
-                error "Did not receive correct data from httpsync, continuing with the next"
+            elif [ $transferbytes -eq 0 ]; then 
+                info "There is nothing to update for \"${mirrorname}\", continuing with the next"
+                ((++progresscounter))
                 continue
             fi
+
+            transfersize=$(echo $transferbytes | numfmt --to=iec-i)
             info "This synchronization will require ${transfersize}B on local storage"
                 
             if [ $transferbytes -gt $availablebytes ]; then
                 error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B " \
                 "available. Cannot update this mirror continuing with the next"
+                ((++progresscounter))
                 continue
             fi
 
@@ -441,7 +470,16 @@ do
             "the next"
             ;;
     esac
+
+    # Mirror sync phase 3 complete
+    # Finished syncing
+    ((++progresscounter))
+    progress "$progresscounter" "$PROGRESSTOTAL"
 done
+
+# Finished
+((++progresscounter))
+progress "$progresscounter" "$PROGRESSTOTAL"
 
 # Finished
 log "Synchronization process finished"
