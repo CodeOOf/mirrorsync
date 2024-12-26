@@ -141,7 +141,7 @@ fi
 # Progress counter data
 progresscounter=0
 REPOSTOTAL=${#REPOCONFIGS[@]}
-PROGRESSTOTAL=((REPOSTOTAL*3+1))
+PROGRESSTOTAL=$((REPOSTOTAL*3+1))
 
 # Verify that current path is writable
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
@@ -236,17 +236,17 @@ do
     # Validate local path is defined and able to write to
     if [ -z "$mirrorname" ]; then
         error "no local directory is defined in \"${repoconfig}\", cannot update this mirror continuing with the next"
-        progresscounter=((progresscounter+3))
+        progresscounter=$((progresscounter+3))
         continue
     elif [ ! -w "$mirrordst" ]; then
         error "The path \"${mirrordst}\" is not writable, cannot update this mirror continuing with the next"
-        progresscounter=((progresscounter+3))
+        progresscounter=$((progresscounter+3))
         continue
     elif [ ! -d "$mirrordst" ]; then
         warning "A local path for \"${mirrorname}\" does not exists, will create one"
         if [ ! mkdir "$mirrordst" 2>&1 ]; then
             error "The path \"${mirrordst}\" could not be created, cannot update this mirror continuing with the next"
-            progresscounter=((progresscounter+3))
+            progresscounter=$((progresscounter+3))
             continue
         fi
     fi
@@ -255,6 +255,7 @@ do
     is_array=$(declare -p remotes | grep '^declare -a')
     if [ -z "$is_array" ]; then
         error "The remotes defined for \"${mirrorname}\" is invalid, cannot update this mirror continuing with the next"
+        progresscounter=$((progresscounter+3))
         continue
     fi
     
@@ -309,7 +310,7 @@ do
     if [ -z "$remotesrc" ]; then
         error "No connection with any remote found in \"${repoconfig}\", cannot update this mirror continuing with " \
         "the next"
-        progresscounter=((progresscounter+3))
+        progresscounter=$((progresscounter+3))
         continue
     fi
 
@@ -329,7 +330,7 @@ do
     else
         warning "The protocol used with \"${remotesrc}\" has not yet been implemented. Move another protocol higher " \
         "up in list of remotes to solve this at the moment. Cannot update this mirror continuing with the next"
-        progresscounter=((progresscounter+2))
+        progresscounter=$((progresscounter+2))
         continue
     fi
 
@@ -337,7 +338,7 @@ do
     if [ -z "$checkresult" ] && [ ! -z "$filelistfile" ]; then
         info "The filelist is unchanged at \"${remotesrc}\", no update required for this mirror continuing with the " \
         "next"
-        progresscounter=((progresscounter+2))
+        progresscounter=$((progresscounter+2))
         continue
     fi
 
