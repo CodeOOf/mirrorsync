@@ -51,19 +51,21 @@ fatal() { error "$*, exiting..."; exit 1; }
 # Usage: progress <current count> <total count>
 # ex. progress 1 5
 progress() {
+    local count=$1
+    local total=$2
     # Calculate current state
-    local progress=(${$1}*100/${2}*100)/100
-    local fillcount=(${2}*${BARLENGTH})/100
-    local emptycount=${BARLENGTH}-$fillcount
+    local progress=$(((count*100/total*100)/100))
+    local donecount=$(((total*BARLENGTH)/100))
+    local leftcount=$((BARLENGTH-donecount))
 
     # Only show the progressbar if we know the stdout is empty
     if [ $VERBOSE_ARG -eq 0 ] && [ $DEBUG_ARG -eq 0 ]; then
         # Create the printf parts
-        local done=${printf "%${fillcount}s"}
-        local left=${printf "%${emptycount}s"}
+        local donefill=$(printf "%${donecount}s")
+        local leftfill=$(printf "%${leftcount}s")
 
         # Display thge final progressbar
-        printf "\rProgress: [${done// /#}${left// /-}] ${progress}%%"
+        printf "\rProgress: [${donefill// /#}${leftfill// /-}] ${progress}%%"
     else
         log_stdout "Progress: ${progress}%"
     fi
