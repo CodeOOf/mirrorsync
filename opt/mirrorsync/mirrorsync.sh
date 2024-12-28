@@ -437,7 +437,9 @@ do
             updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_httpupdate.log"
 
             # First validate that there is enough space on the disk
+            debug "Command used to receive transfer size: $HTTPSYNC ${opts[@]} --stats ${remotesrc}/ ${mirrordst}/"
             transferbytes=$($HTTPSYNC "${opts[@]}" --stats "${remotesrc}/" "${mirrordst}/" 2>&1)
+            debug "The transfer will take \"${transferbytes}B\""
 
             # Validate that the recived size is a number and anything
             if ! [[ $transferbytes =~ $INTEGERCHECK ]]; then
