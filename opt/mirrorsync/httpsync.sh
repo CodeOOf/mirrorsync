@@ -34,7 +34,7 @@ warning() { log "Warning: $*" >&2; }
 error() { log "Error: $*" >&2; }
 fatal() { error "$*, exiting"; exit 1; }
 error_argument() { error "$*, exiting"; usage >&2; exit 1; }
-progress() { printf "%s\n" "$*" >&2; }
+actionlog() { printf "%s\n" "$*" >&2; }
 
 # Arguments Help
 usage() {
@@ -146,7 +146,10 @@ httpssynclist() {
     local localpath=$2
     local querylist=($3)
     local rootqueries=()
-    local localfiles=(${localpath}/*)
+    local localfiles=(${localpath}*)
+
+    # If empty then the command wont execute, so the command becomes the entry
+    if [[ "$localfiles" =~ "${localpath}"\* ]]; then localfiles=(); fi
 
     # Extract all root items to exlude
     for index in "${!querylist[@]}"
@@ -321,9 +324,9 @@ if [ $LIST_ONLY -eq 1 ]; then
     do
         IFS=',' read -r -a syncinfo <<< "$item"
         if [ ! -z "${syncinfo[0]}" ]; then 
-            progress "*NEW* ${syncinfo[1]}"
+            actionlog "*NEW* ${syncinfo[1]}"
         else
-            progress "Remove ${syncinfo[1]}"
+            actionlog "Remove ${syncinfo[1]}"
         fi
     done
 
@@ -332,24 +335,68 @@ if [ $LIST_ONLY -eq 1 ]; then
 fi
 
 info "Synchronization progress starting"
+opts=("--silent")
 # Main Sync
 for item in "${SYNCLIST[@]}"
 do
     IFS=',' read -r -a syncinfo <<< "$item"
     if [ ! -z "${syncinfo[0]}" ]; then 
-        progress "Transfering ${syncinfo[1]}"
         if [ $DELETE_AFTER -eq 1 ]; then
             tmpfile="/tmp/${syncinfo[3]}"
-            curl "${syncinfo[0]}" --output "$tmpfile" 2>&1
-            rm "${syncinfo[1]}" 2>&1
-            mv "$tmpfile" "${syncinfo[1]}" 2>&1
+
+            # Begin transfer of file
+            actionlog "Transfering \"${syncinfo[0]}\" to \"${tmpfile}\""
+            curl "${opts[@]}" "${syncinfo[0]}" --output "$tmpfile" 2>&1
+
+            # Check that the file exists then remove it
+            if [ -f "${syncinfo[1]}" ]; then
+                actionlog "Removing ${syncinfo[1]}"
+                rm "${syncinfo[1]}" 2>&1
+            fi
+
+            # Verify the file still exists then move it
+            if [ -f "$tmpfile" ]; then
+                dstdir="$(dirname "$tmpfile")"
+                # Ensure that a destination directory exists before moving
+                if mkdir -p "$dstdir" 2>&1; then
+                    # Then move the file
+                    mv "$tmpfile" "${syncinfo[1]}" 2>&1
+                else
+                    error "Could not create the directory \"${dstdir}\" for the transfered file \"${tmpfile}\""
+                fi
+            else
+                error "The transfered temporary file \"${tmpfile}\" is missing"
+            fi
         else
-            rm "${syncinfo[1]}" 2>&1
-            curl "${syncinfo[0]}" --output "${syncinfo[1]}" 2>&1
+            # Check that the file exists then remove it
+            if [ -f "${syncinfo[1]}" ]; then
+                actionlog "Removing ${syncinfo[1]}"
+                rm "${syncinfo[1]}" 2>&1
+            fi
+
+            # Ensure that a destination directory exists before transfering
+            dstdir="$(dirname "${syncinfo[1]}")"
+            if mkdir -p "$dstdir" 2>&1; then
+                # Begin transfer of file
+                actionlog "Transfering \"${syncinfo[0]}\" to \"${syncinfo[1]}\""
+                curl "${opts[@]}" "${syncinfo[0]}" --output "${syncinfo[1]}" 2>&1
+            else
+                error "Could not create the directory \"${dstdir}\" for the remote file \"${syncinfo[0]}\""
+            fi
         fi
     else
-        progress "Removing ${syncinfo[1]}"
-        rm -r "${syncinfo[1]}"
+        if [ -f "${syncinfo[1]}" ]; then
+            actionlog "Removing ${syncinfo[1]}"
+            rm "${syncinfo[1]}" 2>&1
+        fi
+
+        # Continue to remove if directory exists and is empty
+        dstdir="$(dirname "$tmpfile")"
+        if [ -d "$dstdir" ] &&  [ -n "$(find $dstdir -maxdepth 0 -type d -empty 2>&1)" ]; then
+            actionlog "Removing empty directory \"${dstdir}\""
+            rm -r "$dstdir"
+        fi
+
     fi
 done
 

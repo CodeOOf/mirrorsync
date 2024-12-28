@@ -62,7 +62,7 @@ progress() {
     local leftcount=$((BARLENGTH-donecount))
 
     debug "Current progress counter ${count}/${total}: ${progress}%"
-    debug "Progress fill is ${donecount}/${leftcount}"
+    debug "Progress fill is [${donecount}-${leftcount}]"
 
     # Only show the progressbar if we know the stdout is empty
     if [ $VERBOSE_ARG -eq 0 ] && [ $DEBUG_ARG -eq 0 ]; then
@@ -192,6 +192,7 @@ fi
 print_header_updatelog() {
     # Expected command:
     # print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERSIZE" "$AVAILABLESIZE" "$UPDATELOGFILE" "${OPTS[*]}"
+    local headerbar=${printf "%${BARLENGTH}s"}
     
     # Print info to new updatelog
     printf "# Syncronization with %s using Mirrorsync by CodeOOf\n" "$1" >> "$6" 2>&1
@@ -203,7 +204,7 @@ print_header_updatelog() {
     printf "# Using the following %s options for this run:\n" "$1" >> "$6" 2>&1
     printf "#   %s\n" "$7" >> "$6" 2>&1
     printf "# This transfer will use: %sB of %sB current available.\n" "$4" "$5" >> "$6" 2>&1
-    printf "---\n" >> "$6" 2>&1
+    printf "${headerbar// /-}\n\n" >> "$6" 2>&1
     printf "Files transfered: \n\n" >> "$6" 2>&1
 }
 
