@@ -220,7 +220,7 @@ progress "$progresscounter" "$PROGRESSTOTAL"
 
 for repoconfig in "${REPOCONFIGS[@]}"
 do
-    info "Now working on repository defined at: $repoconfig"
+    log "Starting to Synchronize mirror defined at \"$repoconfig\""
 
     mirrorname=""
     filelistfile=""
@@ -449,6 +449,10 @@ do
                 ((++progresscounter))
                 continue
             fi
+
+            # If we have debug or verbose activated at the main script, follow using it at httpsync
+            if [ $DEBUG_ARG -eq 1 ]; then opts+=(-d); fi
+            if [ $VERBOSE_ARG -eq 1 ]; then opts+=(-v); fi
 
             transfersize=$(echo $transferbytes | numfmt --to=iec-i)
             info "This synchronization will require ${transfersize}B on local storage"

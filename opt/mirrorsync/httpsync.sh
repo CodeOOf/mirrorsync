@@ -335,7 +335,7 @@ if [ $LIST_ONLY -eq 1 ]; then
 fi
 
 info "Synchronization progress starting"
-opts=("--silent")
+opts=(--silent)
 # Main Sync
 for item in "${SYNCLIST[@]}"
 do
