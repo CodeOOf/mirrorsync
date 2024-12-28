@@ -64,17 +64,17 @@ progress() {
     debug "Current progress counter ${count}/${total}: ${progress}%"
     debug "Progress fill is [${donecount}-${leftcount}]"
 
+    # Create the printf parts
+    local donefill=$(printf "%${donecount}s")
+    local leftfill=$(printf "%${leftcount}s")
+
     # Only show the progressbar if we know the stdout is empty
     if [ $VERBOSE_ARG -eq 0 ] && [ $DEBUG_ARG -eq 0 ]; then
-        # Create the printf parts
-        local donefill=$(printf "%${donecount}s")
-        local leftfill=$(printf "%${leftcount}s")
-
-        # Display thge final progressbar
+        # Display the final progressbar
         printf "\rProgress: [${donefill// /#}${leftfill// /-}] ${progress}%%"
         if [ $leftcount -eq 0 ]; then printf "\n"; fi
     else
-        log_stdout "Progress: ${progress}%"
+        log_stdout "Progress: [${donefill// /#}${leftfill// /-}] ${progress}%%\n"
     fi
 }
 
@@ -220,7 +220,7 @@ progress "$progresscounter" "$PROGRESSTOTAL"
 
 for repoconfig in "${REPOCONFIGS[@]}"
 do
-    log "Starting to Synchronize mirror defined at \"$repoconfig\""
+    log "Starting to synchronize mirror defined at \"$repoconfig\""
 
     mirrorname=""
     filelistfile=""
