@@ -125,13 +125,14 @@ cp "${SRC_CONFIGDIR}/mirrorsync.conf" "${CONFIGDIR}/mirrorsync.conf"
 
 # Fix the .version file to readonly
 log "Setting up access rights"
-chmod u=r,g=r,o=r "${INSTALLDIR}/.version"
-chmod u=r,g=r+x,o=r+x "${INSTALLDIR}/mirrorsync.sh"
-chmod u=r,g=r+x,o=r+x "${INSTALLDIR}/httpsync.sh"
-chmod u=r,g=rwx,o=rwx "${EXCLUDESDIR}"
-chmod u=r,g=rw,o=rw "${LOGDIR}"
-chmod u=r,g=r+x,o=r+x "${REPOCONFIGDIR}"
-chmod u=r+x,g=rwx,o=rwx "${CONFIGDIR}"
+chmod 444 "${INSTALLDIR}/.version"
+chmod 554 "${INSTALLDIR}/mirrorsync.sh"
+chmod 554 "${INSTALLDIR}/httpsync.sh"
+chmod 770 "${EXCLUDESDIR}"
+chmod 750 "${LOGDIR}"
+chmod 775 "${REPOCONFIGDIR}"
+chmod 775 "${CONFIGDIR}"
+chmod 644 "${CONFIGDIR}/mirrorsync.conf"
 
 
 # If both group and user is set we can combine them
