@@ -25,6 +25,7 @@ SRC=""
 DST=""
 SYNCLIST=()
 DATE_FORMAT="+%Y-%m-%d %H:%M:%S"
+COMPDATE_FORMAT="+%Y%m%d%H%M%S"
 
 # Log functions
 log() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
@@ -213,6 +214,9 @@ httpssynclist() {
                 | tr -cd '[:digit:].')
                 local modified_header=$(echo "${header[*]}" | grep -i "Last-modified" \
                 | awk -v 'IGNORECASE=1' -F'Last-modified:' '{print $2}')
+
+                # Check if modified date exists at source
+                local modified_src=""
                 if [ ! -z "${modified_header}" ]; then 
                     modified_src=$(date -d "$modified_header")
                 else
@@ -229,8 +233,11 @@ httpssynclist() {
                             local bytes_dst=$(du -k "$dst" | cut -f1)
                             local modified_dst=$(date -r "$dst")
 
-                            # Check if file is changed based on date if date was extracted
-                            if [ ! -z $modified_src ] && [ $modified_src > $modified_dst ]; then
+                            local compdate_src=$(date -d "$modified_src" "$COMPDATE_FORMAT")
+                            local compdate_dst=$(date -d "$modified_dst" "$COMPDATE_FORMAT")
+
+                            # Check if file is changed based on date if date was extracted from source
+                            if [ ! -z "$modified_src" ] && [[ $compdate_src > $compdate_dst ]]; then
                                 info "Local file \"${dst}\" is unchanged at remote based on date"
 
                                 # Continue with the next item in the loop above this inner as the file is unchanged
