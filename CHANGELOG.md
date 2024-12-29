@@ -2,6 +2,7 @@
 
 ## Pre-Release 1.0.0-alpha (29 Decemeber, 2024)
 * Updated a comprehensive readme
+* Created a uninstall script: uninstall.sh
 * Created an installation script: install.sh
 * Added a progress bar for the main script
 * Created comprehensive logging ability to the scripts

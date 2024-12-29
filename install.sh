@@ -117,9 +117,9 @@ mkdir -p "$LOGDIR"
 # Copy over the files
 log "Copying over all the files to their destinations..."
 log "Copying everything from \"${SRC_INSTALLDIR}\" into \"${INSTALLDIR}\""
-cp "${SRC_INSTALLDIR}/*" "${INSTALLDIR}/"
+cp "${SRC_INSTALLDIR}/" "${INSTALLDIR}"
 log "Copying everything from \"${SRC_REPOCONFIGDIR}\" into \"${REPOCONFIGDIR}\""
-cp "${SRC_REPOCONFIGDIR}/*" "${REPOCONFIGDIR}/"
+cp "${SRC_REPOCONFIGDIR}/" "${REPOCONFIGDIR}"
 log "Copying main configuration \"${SRC_CONFIGDIR}/mirrorsync.conf\" into \"${CONFIGDIR}/mirrorsync.conf\""
 cp "${SRC_CONFIGDIR}/mirrorsync.conf" "${CONFIGDIR}/mirrorsync.conf"
 
@@ -131,6 +131,7 @@ chmod u=r,g=r+x,o=r+x "${INSTALLDIR}/httpsync.sh"
 chmod u=r,g=rwx,o=rwx "${EXCLUDESDIR}"
 chmod u=r,g=rw,o=rw "${LOGDIR}"
 chmod u=r,g=r+x,o=r+x "${REPOCONFIGDIR}"
+chmod u=r+x,g=rwx,o=rwx "${CONFIGDIR}"
 
 
 # If both group and user is set we can combine them

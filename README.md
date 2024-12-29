@@ -104,6 +104,12 @@ the mirrors as defined in ```<config_path>/mirrorsync.conf```
 7. Set up a cron job with the script according to ```example.crontab``` or just 
 runt the script manually
 
+Example setting up the crontab for another user:
+```
+sudo crontab -u mirrorsa -e
+```
+Then just follow the examples from ```example.crontab```
+
 ### Periodic Synchronization
 Add the script to crontab, see ```example.crontab``` in root of this repository.
 
@@ -116,6 +122,14 @@ Default installation:
 Root user updating default installation for a specific service account:
 sudo bash ./update.sh --user mirrorsa --group root
 ```
+
+## Remove
+If you wish to remove the script just run the uninstall script:
+```
+./uninstall.sh
+```
+**WARNING** Use the **EXACT** same arguments as when installing except for 
+user and groups if not using default paths.
 
 ## Disclaimer
 The goal of the script development is to use as little  3rd party tools as 
