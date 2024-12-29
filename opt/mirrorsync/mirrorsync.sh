@@ -192,7 +192,7 @@ fi
 
 # Check for existing lockfile to avoid multiple simultaneously running syncs
 # If lockfile exists but process is dead continue anyway
-if [ -e "$LOCKFILE" ] && ! kill -0 "$(< "$LOCKFILE")" 2>&1; then
+if [ -e "$LOCKFILE" ] && ! kill -0 "$(< "$LOCKFILE")" 2>/dev/null; then
     warning "lockfile exists but process dead, continuing"
     rm -f "$LOCKFILE"
 elif [ -e "$LOCKFILE" ]; then
@@ -216,7 +216,7 @@ print_header_updatelog() {
     printf "# Using the following %s options for this run:\n" "$1" >> "$6" 2>&1
     printf "#   %s\n" "$7" >> "$6" 2>&1
     printf "# This transfer will use: %sB of %sB current available.\n" "$4" "$5" >> "$6" 2>&1
-    printf "${headerbar// /-}\n\n" >> "$6" 2>&1
+    printf "# ${headerbar// /-}\n\n" >> "$6" 2>&1
     printf "Files transfered: \n\n" >> "$6" 2>&1
 }
 
@@ -312,7 +312,7 @@ do
         test_response=$?
         debug "Test response code from connection test: $test_response"
         if [ $test_response -eq 0 ]; then
-            info "Connection valid for \"${remote}\""
+            log "The mirror \"${mirrorname}\" will synchronize with \"${remote}\""
             remotesrc=$remote
             break
         fi
@@ -350,8 +350,8 @@ do
     fi
 
     # Check the results of the filelist against the local
-    if [ -z "$checkresult" ] && [ ! -z "$filelistfile" ]; then
-        info "The filelist is unchanged at \"${remotesrc}\", no update required for this mirror continuing with the " \
+    if [ ! -z "$filelistfile" ] && [ -z "$checkresult" ]; then
+        log "The filelist is unchanged at \"${remotesrc}\", no update required for this mirror continuing with the " \
         "next"
         progresscounter=$((progresscounter+2))
         continue
@@ -387,7 +387,7 @@ do
     # Write the new excludes into the excludefile
     for exclude in "${excludequeries[@]}"
     do
-        printf "$exclude\n" >> $excludefile
+        printf "%s\n" "${exclude}" >> $excludefile 2>&1
     done
     debug "excludes added to the file \"${excludefile}\""
 
@@ -409,8 +409,11 @@ do
             updatelogfile="${LOGPATH}/$(date +%y%m%d%H%M)_${mirrorname}_rsyncupdate.log"
 
             # First validate that there is enough space on the disk
+            debug "Command used to receive transfer size: rsync ${opts[@]} --dry-run --stats ${remotesrc}/ " \
+            "${mirrordst}/ | grep -i \"Total transferred\" | sed 's/[^0-9]*//g')"
             transferbytes=$(rsync "${opts[@]}" --dry-run --stats "${remotesrc}/" "${mirrordst}/" | \
             grep -i "Total transferred" | sed 's/[^0-9]*//g')
+            debug "The transfer will take \"${transferbytes}B\""
 
             # Validate that the recived size is a number and anything
             if ! [[ $transferbytes =~ $INTEGERCHECK ]]; then
@@ -438,10 +441,11 @@ do
             "${opts[*]}"
 
             # Start updating
+            debug "Command used to syncronize mirror: $HTTPSYNC ${opts[@]} ${remotesrc}/ ${mirrordst}/"
             rsync "${opts[@]}" "${remotesrc}/" "${mirrordst}/" >> "$updatelogfile" 2>&1
 
             # Finished
-            info "Finished updating mirror \"${mirrorname}\", log found at \"${updatelogfile}\""
+            log "Finished updating mirror \"${mirrorname}\", log found at \"${updatelogfile}\""
             ;;
         $HTTP_PORT|$HTTPS_PORT)
             # Set variables for the run
@@ -483,10 +487,11 @@ do
             "${opts[*]}"
 
             # Start updating
+            debug "Command used to syncronize mirror: $HTTPSYNC ${opts[@]} ${remotesrc}/ ${mirrordst}/"
             $HTTPSYNC "${opts[@]}" "${remotesrc}/" "${mirrordst}/" >> "$updatelogfile" 2>&1
 
             # Finished
-            info "Finished updating mirror \"${mirrorname}\", log found at \"${updatelogfile}\""
+            log "Finished updating mirror \"${mirrorname}\", log found at \"${updatelogfile}\""
             ;;
         *)
             warning "The protocol defined for \"${remotesrc}\" is invalid, cannot update this mirror continuing with " \
