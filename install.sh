@@ -125,13 +125,14 @@ cp "${SRC_CONFIGDIR}/mirrorsync.conf" "${CONFIGDIR}/mirrorsync.conf"
 
 # Fix the .version file to readonly
 log "Setting up access rights"
+chmod 555 "${INSTALLDIR}"
 chmod 444 "${INSTALLDIR}/.version"
 chmod 554 "${INSTALLDIR}/mirrorsync.sh"
 chmod 554 "${INSTALLDIR}/httpsync.sh"
-chmod 770 "${EXCLUDESDIR}"
+chmod 750 "${EXCLUDESDIR}"
 chmod 750 "${LOGDIR}"
-chmod 775 "${REPOCONFIGDIR}"
-chmod 775 "${CONFIGDIR}"
+chmod 755 "${REPOCONFIGDIR}"
+chmod 755 "${CONFIGDIR}"
 chmod 644 "${CONFIGDIR}/mirrorsync.conf"
 
 
