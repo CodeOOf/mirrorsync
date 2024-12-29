@@ -117,9 +117,9 @@ mkdir -p "$LOGDIR"
 # Copy over the files
 log "Copying over all the files to their destinations..."
 log "Copying everything from \"${SRC_INSTALLDIR}\" into \"${INSTALLDIR}\""
-cp "${SRC_INSTALLDIR}/" "${INSTALLDIR}"
+cp -r "${SRC_INSTALLDIR}/." "${INSTALLDIR}/"
 log "Copying everything from \"${SRC_REPOCONFIGDIR}\" into \"${REPOCONFIGDIR}\""
-cp "${SRC_REPOCONFIGDIR}/" "${REPOCONFIGDIR}"
+cp -r "${SRC_REPOCONFIGDIR}/." "${REPOCONFIGDIR}/"
 log "Copying main configuration \"${SRC_CONFIGDIR}/mirrorsync.conf\" into \"${CONFIGDIR}/mirrorsync.conf\""
 cp "${SRC_CONFIGDIR}/mirrorsync.conf" "${CONFIGDIR}/mirrorsync.conf"
 
@@ -175,8 +175,10 @@ log "Update the configurations found at \"${CONFIGDIR}\" before running this scr
 if [ "$LOGDIR" != "$DEFAULT_LOGDIR" ]; then 
     warning "Remember to update the \"${CONFIGDIR}/mirrorsync.sh\" with the non default log path: $LOGDIR"
 fi
+log "##################"
 log "Usage:"
 log "${INSTALLDIR}/mirrorsync.sh ${opts[@]}"
+log "##################"
 log "Advice the \"${SCRIPTDIR}/example.crontab\" for examples on how to set up the script for automated runs"
 log "Exiting..."
 exit 0
