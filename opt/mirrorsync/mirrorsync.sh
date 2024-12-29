@@ -74,7 +74,7 @@ progress() {
         if [ $VERBOSE_ARG -eq 1 ] || [ $DEBUG_ARG -eq 1 ]; then
             # If debug or verbose activated display it in text format
             log_stdout "Progress: [${donefill// /#}${leftfill// /-}] ${progress}%%\n"
-        elif [ $VERBOSE -eq 1 ]; then
+        elif [ ! -z "$VERBOSE" ] && [ $VERBOSE -eq 1 ]; then
             # Verbose will print progress to logfile
             log "Progress: [${donefill// /#}${leftfill// /-}] ${progress}%%\n"
         else
