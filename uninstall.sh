@@ -72,7 +72,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 # Start removing the directories
-log "Removing the directory \"${EXCLUDEDIR}\" and its content"
+log "Removing the directory \"${EXCLUDESDIR}\" and its content"
 rm -r "$EXCLUDESDIR"
 log "Removing the directory \"${INSTALLDIR}\" and its content"
 rm -r "$INSTALLDIR"
