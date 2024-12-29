@@ -177,6 +177,10 @@ if [ ! -w "$SCRIPTDIR" ]; then
     fatal_stdout "The directory where this script is located is not writable for this user. This is required for the " \
     "lockfile to avoid multiple simultaneous runs of the script"
 fi
+if [ ! -w "$EXCLUDESDIR" ]; then
+    fatal_stdout "The directory \"${EXCLUDESDIR}\" is not writable for this user. This is required for the exclude " \
+    "files"
+fi
 VERSION=$(cat ${SCRIPTDIR}/.version)
 HTTPSYNC="${SCRIPTDIR}/httpsync.sh"
 
