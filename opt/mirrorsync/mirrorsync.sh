@@ -9,8 +9,9 @@
 # Copyright (c) 2024 CodeOOf
 
 # Global Variables
-CONFIGFILE="/etc/mirrorsync/mirrorsync.conf"
-REPOCONFIGDIR="/etc/mirrorsync/repos.conf.d"
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
+CONFIGDIR="/etc/mirrorsync"
+EXCLUDESDIR="${SCRIPTDIR}/excludes"
 LOCKFILE="$0.lockfile"
 LOGFILE=""
 VERBOSE=""
@@ -96,8 +97,16 @@ Arguments:
   -h, --help
     Display this usage message and exit.
 
+  --config-path=PATH
+    Set a path from where this script can read the configurations and settings.
+    Default: $CONFIGDIR
+
   -d, --debug
     Activate Debug Mode, provides a very detailed output to the system console.
+
+  --excludes-path=PATH
+    Set a path from where this script can read and write files with exlude patterns listed.
+    Default: $EXCLUDESDIR
 
   -p, --progress
     Display a progress bar to standard output.
@@ -113,17 +122,23 @@ EOF
 # Arguments Parser
 while [ "$#" -gt 0 ]; do
     case $1 in
+        --config-path=*) EXCLUDESDIR="${1#*=}";;
         -d|--debug) DEBUG_ARG=1;;
+        --excludes-path=*) EXCLUDESDIR="${1#*=}";;
+        -h|--help) usage; exit 0;;
         -p|--progress) SHOW_PROGRESS=1;;
         -s|--stdout) STDOUT=1;;
         -v|--verbose) VERBOSE_ARG=1;;
-        -h|--help) usage; exit 0;;
         --) shift; break;;
         -*) error_argument "Unknown option: '$1'";;
         *) break;;
     esac
     shift || error_argument "Option '${1}' requires a value"
 done
+
+# Updated variables after arguments parser
+CONFIGFILE="${CONFIGDIR}/mirrorsync.conf"
+REPOCONFIGDIR="${CONFIGDIR}/repos.conf.d"
 
 # Verify config file is readable
 if [ ! -r "$CONFIGFILE" ]; then
@@ -158,7 +173,6 @@ REPOSTOTAL=${#REPOCONFIGS[@]}
 PROGRESSTOTAL=$((REPOSTOTAL*3+1))
 
 # Verify that current path is writable
-SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 if [ ! -w "$SCRIPTDIR" ]; then
     fatal_stdout "The directory where this script is located is not writable for this user. This is required for the " \
     "lockfile to avoid multiple simultaneous runs of the script"
@@ -358,7 +372,7 @@ do
     fi
 
     # Create a new exlude file before running the update
-    excludefile="${SCRIPTDIR}/${mirrorname}_exclude.txt"
+    excludefile="${EXCLUDESDIR}/${mirrorname}_exclude.txt"
     # Clear file
     > $excludefile
 

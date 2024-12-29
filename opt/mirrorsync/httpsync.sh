@@ -1,6 +1,6 @@
 #!/bin/env bash
 # 
-# Mirrorsync - httpssynclist.sh
+# Mirrorsync - httpsync.sh
 # Author: Viktor H. Ingre <viktor.ingre@codeoof.com>
 #
 # Latest version available at:
