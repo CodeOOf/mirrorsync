@@ -21,6 +21,7 @@ TIMEOUT=2
 STDOUT=0
 VERBOSE_ARG=0
 DEBUG_ARG=0
+SHOW_PROGRESS=0
 BARLENGTH=40
 INTEGERCHECK='^[0-9]+$'
 
@@ -69,12 +70,19 @@ progress() {
     local leftfill=$(printf "%${leftcount}s")
 
     # Only show the progressbar if we know the stdout is empty
-    if [ $VERBOSE_ARG -eq 0 ] && [ $DEBUG_ARG -eq 0 ]; then
-        # Display the final progressbar
-        printf "\rProgress: [${donefill// /#}${leftfill// /-}] ${progress}%%"
-        if [ $leftcount -eq 0 ]; then printf "\n"; fi
-    else
-        log_stdout "Progress: [${donefill// /#}${leftfill// /-}] ${progress}%%\n"
+    if [ $SHOW_PROGRESS -eq 1 ]; then
+        if [ $VERBOSE_ARG -eq 1 ] || [ $DEBUG_ARG -eq 1 ]; then
+            # If debug or verbose activated display it in text format
+            log_stdout "Progress: [${donefill// /#}${leftfill// /-}] ${progress}%%\n"
+        elif [ $VERBOSE -eq 1 ]; then
+            # Verbose will print progress to logfile
+            log "Progress: [${donefill// /#}${leftfill// /-}] ${progress}%%\n"
+        else
+            # Display the dynamic progressbar
+            # Only works if no other printouts to standard output is made
+            printf "\rProgress: [${donefill// /#}${leftfill// /-}] ${progress}%%"
+            if [ $leftcount -eq 0 ]; then printf "\n"; fi
+        fi
     fi
 }
 
@@ -91,6 +99,9 @@ Arguments:
   -d, --debug
     Activate Debug Mode, provides a very detailed output to the system console.
 
+  -p, --progress
+    Display a progress bar to standard output.
+
   -s, --stdout
     Activate Standard Output, streams every output to the system console.
 
@@ -102,9 +113,10 @@ EOF
 # Arguments Parser
 while [ "$#" -gt 0 ]; do
     case $1 in
-        -d|--debug) DEBUG_ARG=1; info_stdout "Debug Mode Activated";;
-        -s|--stdout) STDOUT=1; info_stdout "Standard Output Activated";;
-        -v|--verbose) VERBOSE_ARG=1; info_stdout "Verbose Mode Activated";;
+        -d|--debug) DEBUG_ARG=1;;
+        -p|--progress) SHOW_PROGRESS=1;;
+        -s|--stdout) STDOUT=1;;
+        -v|--verbose) VERBOSE_ARG=1;;
         -h|--help) usage; exit 0;;
         --) shift; break;;
         -*) error_argument "Unknown option: '$1'";;
@@ -192,7 +204,7 @@ fi
 print_header_updatelog() {
     # Expected command:
     # print_header_updatelog "rsync" "$SRC" "$DST" "$TRANSFERSIZE" "$AVAILABLESIZE" "$UPDATELOGFILE" "${OPTS[*]}"
-    local headerbar=${printf "%${BARLENGTH}s"}
+    local headerbar=$(printf "%${BARLENGTH}s")
     
     # Print info to new updatelog
     printf "# Syncronization with %s using Mirrorsync by CodeOOf\n" "$1" >> "$6" 2>&1
