@@ -261,24 +261,32 @@ do
     remotesrc=""
     remoteport=0
 
-    source $repoconfig
+    # First verify that file is readable
+    if [ ! -r "$repoconfig" ]; then
+        error "The repository configuration file \"${repoconfig}\" is not readable. Continuing with the next mirror"
+        progresscounter=$((progresscounter+3))
+        continue
+    else
+        # Load configuration
+        source $repoconfig
+    fi
 
     # Define the new path
     mirrordst="${LOCALDST}/$mirrorname"
 
     # Validate local path is defined and able to write to
     if [ -z "$mirrorname" ]; then
-        error "no local directory is defined in \"${repoconfig}\", cannot update this mirror continuing with the next"
+        error "no local directory is defined in \"${repoconfig}\". Continuing with the next mirror"
         progresscounter=$((progresscounter+3))
         continue
     elif [ ! -w "$mirrordst" ]; then
-        error "The path \"${mirrordst}\" is not writable, cannot update this mirror continuing with the next"
+        error "The path \"${mirrordst}\" is not writable. Continuing with the next mirror"
         progresscounter=$((progresscounter+3))
         continue
     elif [ ! -d "$mirrordst" ]; then
         warning "A local path for \"${mirrorname}\" does not exists, will create one"
         if [ ! mkdir "$mirrordst" 2>&1 ]; then
-            error "The path \"${mirrordst}\" could not be created, cannot update this mirror continuing with the next"
+            error "The path \"${mirrordst}\" could not be created. Continuing with the next mirror"
             progresscounter=$((progresscounter+3))
             continue
         fi
@@ -287,7 +295,7 @@ do
     # Validate the remotes variable is a array
     is_array=$(declare -p remotes | grep '^declare -a')
     if [ -z "$is_array" ]; then
-        error "The remotes defined for \"${mirrorname}\" is invalid, cannot update this mirror continuing with the next"
+        error "The remotes defined for \"${mirrorname}\" is invalid. Continuing with the next mirror"
         progresscounter=$((progresscounter+3))
         continue
     fi
