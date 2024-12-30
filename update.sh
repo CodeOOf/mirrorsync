@@ -8,17 +8,23 @@
 #
 # Copyright (c) 2024 CodeOOf
 
+# Recive full path to this script
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
+CHANGELOG="${SCRIPTDIR}/CHANGELOG.md"
+SRC="${SCRIPTDIR}/opt/mirrorsync/"
 DST="/opt/mirrorsync"
 USER=""
 GROUP=""
+NEW_VERSION=$(cat "${SRC}/.version")
+OLD_VERSION=$(cat "${DST}/.version")
 
-# Log functions for standard output
-log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
-info_stdout() { log_stdout "$*" >&2; }
-warning_stdout() { log_stdout "Warning: $*" >&2; }
-error_stdout() { log_stdout "Error: $*" >&2; }
-fatal_stdout() { error_stdout "$*, exiting..."; exit 1; }
-error_argument() { error_stdout "$*, exiting..."; usage >&2; exit 1; }
+# Log functions
+log() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
+info() { log "$*" >&2; }
+warning() { log "Warning: $*" >&2; }
+error() { log "Error: $*" >&2; }
+fatal() { error "$*, exiting..."; exit 1; }
+error_argument() { error "$*, exiting..."; usage >&2; exit 1; }
 
 # Arguments Help
 usage() {
@@ -50,9 +56,9 @@ while [ "$#" -gt 0 ]; do
     case $1 in
         # Convert "--opt=value" to --opt "value"
         --*'='*) shift; set -- "${arg%%=*}" "${arg#*=}" "$@"; continue;;
-        -d|--destination) shift; DST=$1; info_stdout "Destination set to: $1";;
-        -u|--user) shift; USER=$1; info_stdout "User set to: $1";;
-        -g|--group) shift; GROUP=$1; info_stdout "Group set to: $1";;
+        -d|--destination) shift; DST=$1; info "Destination set to: $1";;
+        -u|--user) shift; USER=$1; info "User set to: $1";;
+        -g|--group) shift; GROUP=$1; info "Group set to: $1";;
         -h|--help) usage; exit 0;;
         --) shift; break;;
         -*) error_argument "Unknown option: '$1'";;
@@ -61,14 +67,10 @@ while [ "$#" -gt 0 ]; do
     shift || error_argument "Option '${arg}' requires a value"
 done
 
-# Recive full path to this script
-SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
-SRC="${SCRIPTDIR}/opt/mirrorsync/"
-
-info_stdout "Synchronization process started at $DST"
+info "Synchronization process started at $DST"
 # Using rsync to update script folder
 rsync -a --chmod=Du=rwx,Dg=rwx,Do=rx,Fu=rwx,Fg=rx,Fo=rx "$SRC" "$DST"
-info_stdout "Synchronization process finished, continuing with ownership"
+info "Synchronization process finished, continuing with ownership"
 
 # Fix the .version file to readonly
 chmod u=r,g=r,o=r "${DST}/.version"
@@ -79,13 +81,54 @@ if [ ! -z "$USER" ] && [ ! -z "$GROUP" ]; then USER="${USER}:${GROUP}"; fi
 # Change ownership on files if it is set
 if [ ! -z "$USER" ]; then 
     chown -R "$USER" "$DST" 
-    info_stdout "Added ownership $USER for $DST"
+    info "Added ownership $USER for $DST"
 elif [ ! -z "$GROUP" ]; then
     chgrp -R "$GROUP" "$DST"
-    info_stdout "Added ownership group $GROUP for $DST"
+    info "Added ownership group $GROUP for $DST"
 fi
 
-VERSION=$(cat ${DST}/.version)
-info_stdout "Update finished, current version is now: $VERSION"
-info_stdout "Exiting..."
+# Verify that the version was added at the destination
+VERSION=$(cat "${DST}/.version")
+if [ "$VERSION" != "$NEW_VERSION" ]; then
+    fatal "The new version \"${NEW_VERSION}\" is not found at \"${DST}\", update failed"
+fi
+
+info "Update finished, current version is now $VERSION"
+info "Changes made since the old version ${OLD_VERSION}:"
+
+# Print out changes since last update
+re_header='^#.*'
+re_blankline='^\s*$'
+re_bullet='^\*.*'
+start_arg=0
+last_line=""
+
+# Walk through the changelog and print out all the lines between releases
+while read -r line; do
+    # Skip blank lines
+    if [[ "$line" =~ $re_blankline ]]; then continue; fi
+
+    # First check if markdown header, else print change if the new version is found
+    if [[ "$line" =~ $re_header ]]; then
+        if [[ "$line" == *"${NEW_VERSION:1}"* ]]; then
+            start_arg=1
+        elif [[ "$line" == *"${OLD_VERSION:1}"* ]]; then
+            info "$last_line"
+            break
+        fi
+    elif [ $start_arg -eq 1 ]; then
+        if [[ "$line" =~ $re_bullet ]]; then
+            if [ ! -z "$last_line" ]; then 
+                info "$last_line"
+            fi
+            last_line="$line"
+        else
+            # Sometimes the bullets are on multiple lines
+            last_line+=" $line"
+        fi
+    fi
+done < "$CHANGELOG"
+
+# Done
+info "Exiting..."
 exit 0

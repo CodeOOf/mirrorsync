@@ -1,6 +1,7 @@
 # Changelog
 
 ## Pre-Release 1.0.0-beta (XX XXX, 202X)
+* Added changelog printout to update script
 * Minor fixes to texts in both readme and printouts
 
 ## Pre-Release 1.0.0-alpha (29 Decemeber, 2024)
