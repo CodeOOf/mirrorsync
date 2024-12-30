@@ -48,17 +48,20 @@ Then update the configurations found at ```/etc/mirrorsync/```.
 This installation shows how this can be done as root with a local service 
 account as end user.
 
-The default file structure that these instructions will lead to:
+The default file structure is seen bellow.  
+The ```[XXX]``` markings to the right of a file or directory indicates the 
+required permissions for the user or service account that will run the scripts. 
 ```bash
 ├── etc
-│   └── mirrorsync [r]
-│       ├── repos.conf.d [r+x]
-│       │   ├── repo1.conf
-│       │   └── repo2.conf
-│       └── mirrorsync.conf
-├── opt
 │   └── mirrorsync
+│       ├── repos.conf.d [r+x]
+│       │   ├── repo1.conf [r]
+│       │   └── repo2.conf [r]
+│       └── mirrorsync.conf [r]
+├── opt
+│   └── mirrorsync [r+w]
 │       ├── excludes [r+w]
+│       │   ├── httpsync.sh.lockfile
 │       │   ├── repo1_exclude.txt
 │       │   └── repo2_exclude.txt
 │       ├── .version [r]
@@ -74,9 +77,6 @@ The default file structure that these instructions will lead to:
     └── example_mirror
         └── synced files...
 ```
-The intended file structure, the ```[XXX]``` markings to the right of a file or 
-directory indicates the required permissions for the user or service account 
-that will run the scripts.  
 Based on the above file structure the following terms will be used:
 ```
 config_path=/etc/mirrorsync

@@ -12,7 +12,6 @@
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 CONFIGDIR="/etc/mirrorsync"
 EXCLUDESDIR="${SCRIPTDIR}/excludes"
-LOCKFILE="$0.lockfile"
 LOGFILE=""
 VERBOSE=""
 HTTP_PORT=80
@@ -139,6 +138,7 @@ done
 # Updated variables after arguments parser
 CONFIGFILE="${CONFIGDIR}/mirrorsync.conf"
 REPOCONFIGDIR="${CONFIGDIR}/repos.conf.d"
+LOCKFILE="${EXCLUDESDIR}/mirrorsync.sh.lockfile"
 
 # Verify config file is readable
 if [ ! -r "$CONFIGFILE" ]; then

@@ -1,6 +1,8 @@
 # Changelog
 
 ## Pre-Release 1.0.0-beta (XX XXX, 202X)
+* Moved the lockfile creation to the exclude folder to avoid write premission 
+in script path
 * Added read check on repository configuration file
 * Added changelog printout to update script
 * Minor fixes to texts in both readme and printouts

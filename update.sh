@@ -73,7 +73,9 @@ rsync -a --chmod=Du=rwx,Dg=rwx,Do=rx,Fu=rwx,Fg=rx,Fo=rx "$SRC" "$DST"
 info "Synchronization process finished, continuing with ownership"
 
 # Fix the .version file to readonly
-chmod u=r,g=r,o=r "${DST}/.version"
+chmod 444 "${DST}/.version"
+chmod 554 "${DST}/mirrorsync.sh"
+chmod 554 "${DST}/httpsync.sh"
 
 # If both group and user is set we can combine them
 if [ ! -z "$USER" ] && [ ! -z "$GROUP" ]; then USER="${USER}:${GROUP}"; fi
