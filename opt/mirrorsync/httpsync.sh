@@ -139,10 +139,10 @@ arraymatch() {
 
 # This is a recursive function that will parse through a website with listed items and compare with local
 # returning a list of itemes out of sync
-# Usage: httpssynclist "http://example.com/pub/repo/" "/my/local/destination/" "(EXCLUDE/,*FILES,and~,/dirs)"
+# Usage: parsefilelist "http://example.com/pub/repo/" "/my/local/destination/" "(EXCLUDE/,*FILES,and~,/dirs)"
 # With the ending slash on paths and urls
 # excludes starting with "/" only excludes from root
-httpssynclist() {
+parsefilelist() {
     local baseurl=$1
     local localpath=$2
     local querylist=($3)
@@ -190,7 +190,7 @@ httpssynclist() {
 
             # Call recursivly until no more directories are found
             if [ $RECURSIVE_ARG -eq 1 ]; then
-                httpssynclist "$url" "$dst" "${querylist[*]}" >&2
+                parsefilelist "$url" "$dst" "${querylist[*]}" >&2
             fi
         # As long as it is not ending slash, assume as file
         elif [ "${href:0-1}" != "/" ]; then
@@ -301,7 +301,7 @@ if [ "${SRC:0-1}" != "/" ]; then SRC="${SRC}/"; debug "Added a \"/\" to the sour
 if [ "${DST:0-1}" != "/" ]; then DST="${DST}/"; debug "Added a \"/\" to the destination: $DST"; fi
 
 info "Validating files from remote \"${SRC}\" against \"${DST}\""
-httpssynclist "$SRC" "$DST" "${EXCLUDES[*]}" >&2
+parsefilelist "$SRC" "$DST" "${EXCLUDES[*]}" >&2
 info "Validation finished"
 
 if [ ${#SYNCLIST[@]} -eq 0 ]; then

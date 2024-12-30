@@ -1,5 +1,5 @@
 # Mirrorsync
-<center><b>A repository mirroring tool by CodeOOf</b></center>
+**A repository mirroring tool by CodeOOf**
 
 # Introduction
 Mirrorsync by CodeOOf is a mirroring tool for synchronizing multiple 
@@ -15,7 +15,7 @@ Currently the script has these features:
 * Manage version exclusion at source to minimize local footprint
 * Define custom exclusion queries for each repository
 * Verifies diskspace before starting transfer
-* Specific update log for each run
+* Log file generated specific for each synchronization change
 
 **Protocols that the script currently has support for is:**
 * rsync
@@ -29,7 +29,8 @@ local files and downloaded as needed, like the rsync function.
 Required packets used with this script, ensure that these are available before 
 using the script:
 * rsync
-* curl
+* curl 
+
 Also read the [Disclaimer](#disclaimer).
 
 Installation can be done via the installation script or by using the 
@@ -82,10 +83,6 @@ config_path=/etc/mirrorsync
 installation_path=/opt/mirrorsync
 exclude_path=/opt/mirrorsync/excludes
 ```
-> **WARNING!**  
-> The ```config_path``` is defined hard in the script and requires manual 
-> update by a daring admin each time the update script is used. Not 
-> recommended for the lazy user.
 
 1. Download this repo
 2. Create the directories for ```config_path, installation_path``` and 
@@ -128,8 +125,8 @@ If you wish to remove the script just run the uninstall script:
 ```
 ./uninstall.sh
 ```
-**WARNING** Use the **EXACT** same arguments as when installing except for 
-user and groups if not using default paths.
+> **WARNING** Use the **EXACT** same arguments as when installing except for 
+> user and groups if **not** using default paths.
 
 ## Disclaimer
 The goal of the script development is to use as little  3rd party tools as 

@@ -225,13 +225,13 @@ print_header_updatelog() {
     local headerbar=$(printf "%${BARLENGTH}s")
     
     # Print info to new updatelog
-    printf "# Syncronization with %s using Mirrorsync by CodeOOf\n" "$1" >> "$6" 2>&1
+    printf "# Syncronization with Mirrorsync by CodeOOf via %s\n" "$1" >> "$6" 2>&1
     printf "# Version: %s\n" "$VERSION" >> "$6" 2>&1
-    printf "# Date: %(%Y-%m-%d %H:%M:%s)T\n" -1 >> "$6" 2>&1
+    printf "# Date: %(%Y-%m-%d %H:%M:%S)T\n" -1 >> "$6" 2>&1
     printf "# \n" >> "$6" 2>&1
     printf "# Source: %s\n" "$2" >> "$6" 2>&1
     printf "# Destination: %s\n" "$3" >> "$6" 2>&1
-    printf "# Using the following %s options for this run:\n" "$1" >> "$6" 2>&1
+    printf "# Using the following options will be used for this run:\n" >> "$6" 2>&1
     printf "#   %s\n" "$7" >> "$6" 2>&1
     printf "# This transfer will use: %sB of %sB current available.\n" "$4" "$5" >> "$6" 2>&1
     printf "# ${headerbar// /-}\n\n" >> "$6" 2>&1
