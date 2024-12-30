@@ -319,7 +319,7 @@ do
                 remoteport=$HTTP_PORT
                 ;;
             *)
-                error "The remote \"${remote}\" contains a invalid protocol"
+                error "The remote \"${remote}\" contains a protocol not yet implemented"
                 continue
                 ;;
         esac
@@ -369,10 +369,8 @@ do
         checkresult=$(rsync --no-motd --dry-run --out-format="%n" "${remotesrc}/$filelistfile" \
         "${mirrordst}/$filelistfile")
     else
-        warning "The protocol used with \"${remotesrc}\" has not yet been implemented. Move another protocol higher " \
-        "up in list of remotes to solve this at the moment. Cannot update this mirror continuing with the next"
-        progresscounter=$((progresscounter+2))
-        continue
+        info "The protocol used with \"${remotesrc}\" has not yet implemented for filelist file checks"
+        checkresult="?"
     fi
 
     # Check the results of the filelist against the local
