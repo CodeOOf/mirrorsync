@@ -112,17 +112,14 @@ while read -r line; do
 
     # First check if markdown header, else print change if the new version is found
     if [[ "$line" =~ $re_header ]]; then
-        if [[ "$line" == *"${NEW_VERSION:1}"* ]]; then
-            start_arg=1
-        elif [[ "$line" == *"${OLD_VERSION:1}"* ]]; then
-            info "$last_line"
+        if [[ "$line" == *"${NEW_VERSION:1}"* ]]; then start_arg=1; fi
+        if [[ "$line" == *"${OLD_VERSION:1}"* ]]; then
+            if [ ! -z "$last_line" ]; then info "$last_line"; fi
             break
         fi
     elif [ $start_arg -eq 1 ]; then
         if [[ "$line" =~ $re_bullet ]]; then
-            if [ ! -z "$last_line" ]; then 
-                info "$last_line"
-            fi
+            if [ ! -z "$last_line" ]; then info "$last_line"; fi
             last_line="$line"
         else
             # Sometimes the bullets are on multiple lines

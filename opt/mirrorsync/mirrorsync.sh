@@ -349,8 +349,7 @@ do
 
     # If no source url is defined it means we did not find a valid remote url that we can connect to now
     if [ -z "$remotesrc" ]; then
-        error "No connection with any remote found in \"${repoconfig}\", cannot update this mirror continuing with " \
-        "the next"
+        error "No connection with any remote found in \"${repoconfig}\". Continuing with the next mirror"
         progresscounter=$((progresscounter+3))
         continue
     fi
@@ -375,8 +374,7 @@ do
 
     # Check the results of the filelist against the local
     if [ ! -z "$filelistfile" ] && [ -z "$checkresult" ]; then
-        log "The filelist is unchanged at \"${remotesrc}\", no update required for this mirror continuing with the " \
-        "next"
+        log "The filelist is unchanged at \"${remotesrc}\", no update required. Continuing with the next mirror"
         progresscounter=$((progresscounter+2))
         continue
     fi
@@ -441,11 +439,11 @@ do
 
             # Validate that the recived size is a number and anything
             if ! [[ $transferbytes =~ $INTEGERCHECK ]]; then
-                error "Did not receive correct data from rsync, continuing with the next"
+                error "Did not receive correct data from rsync. Continuing with the next mirror"
                 ((++progresscounter))
                 continue
             elif [ $transferbytes -eq 0 ]; then 
-                info "There is nothing to update for \"${mirrorname}\", continuing with the next"
+                info "There is nothing to update for \"${mirrorname}\". Continuing with the next mirror"
                 ((++progresscounter))
                 continue
             fi
@@ -455,7 +453,7 @@ do
                 
             if [ $transferbytes -gt $availablebytes ]; then
                 error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B " \
-                "available. Cannot update this mirror continuing with the next"
+                "available. Continuing with the next mirror"
                 ((++progresscounter))
                 continue
             fi
@@ -483,11 +481,11 @@ do
 
             # Validate that the recived size is a number and anything
             if ! [[ $transferbytes =~ $INTEGERCHECK ]]; then
-                error "Did not receive correct data from httpsync, continuing with the next"
+                error "Did not receive correct data from httpsync. Continuing with the next mirror"
                 ((++progresscounter))
                 continue
             elif [ $transferbytes -eq 0 ]; then 
-                info "There is nothing to update for \"${mirrorname}\", continuing with the next"
+                info "There is nothing to update for \"${mirrorname}\". Continuing with the next mirror"
                 ((++progresscounter))
                 continue
             fi
@@ -501,7 +499,7 @@ do
                 
             if [ $transferbytes -gt $availablebytes ]; then
                 error "Not enough space on disk! This transfer needs ${transfersize}B of ${availablesize}B " \
-                "available. Cannot update this mirror continuing with the next"
+                "available. Continuing with the next mirror"
                 ((++progresscounter))
                 continue
             fi
@@ -518,8 +516,7 @@ do
             log "Finished updating mirror \"${mirrorname}\", log found at \"${updatelogfile}\""
             ;;
         *)
-            warning "The protocol defined for \"${remotesrc}\" is invalid, cannot update this mirror continuing with " \
-            "the next"
+            warning "The protocol defined for \"${remotesrc}\" is invalid. Continuing with the next mirror"
             ;;
     esac
 
