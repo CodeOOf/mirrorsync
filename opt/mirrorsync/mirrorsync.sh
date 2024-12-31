@@ -24,6 +24,9 @@ DEBUG_ARG=0
 SHOW_PROGRESS=0
 BARLENGTH=40
 INTEGERCHECK='^[0-9]+$'
+DIRPERM=755
+FILEPERM=644
+
 
 # Log functions for standard output
 log_stdout() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
@@ -86,6 +89,9 @@ progress() {
     fi
 }
 
+# Temporary arguments variables
+chmod_arg=""
+
 # Arguments Help
 usage() {
     cat << EOF
@@ -99,6 +105,10 @@ Arguments:
   --config-path=PATH
     Set a path from where this script can read the configurations and settings.
     Default: $CONFIGDIR
+
+  --chmod=DXXX,FYYY
+    Set specific file or directory permission on the destination mirror. Only numeric chmod is allowed.
+    Default: D${DIRPERM},F${FILEPERM}
 
   -d, --debug
     Activate Debug Mode, provides a very detailed output to the system console.
@@ -121,6 +131,7 @@ EOF
 # Arguments Parser
 while [ "$#" -gt 0 ]; do
     case $1 in
+        --chmod=*) chmod_arg="${1#*=}";;
         --config-path=*) EXCLUDESDIR="${1#*=}";;
         -d|--debug) DEBUG_ARG=1;;
         --excludes-path=*) EXCLUDESDIR="${1#*=}";;
@@ -144,7 +155,25 @@ LOCKFILE="${EXCLUDESDIR}/mirrorsync.sh.lockfile"
 if [ ! -r "$CONFIGFILE" ]; then
     fatal_stdout "The script configfile \"$CONFIGFILE\" is not availble or readable"
 else
+    debug "Sourcing the main configuration file \"${CONFIGFILE}\""
     source "$CONFIGFILE"
+fi
+
+# If chmod argument is set, change the numbers
+if [ ! -z "$chmod_arg" ]; then
+    local dirnum_test=0
+    local filenum_test=0
+
+    # Exctract the first 3 numbers after each character match
+    [[ "${TEST}" =~ [dD]([[:digit:]]{3}) ]] && dirnum_test="${BASH_REMATCH[1]}"
+    [[ "${TEST}" =~ [fF]([[:digit:]]{3}) ]] && filenum_test="${BASH_REMATCH[1]}"
+
+    debug "Extracted the following chmod=D${dirnum_test},F${filenum_test}"
+
+    # Test if numbers are correct then add them to global
+    if [ $dirnum_test -gt 0 ]; then DIRPERM=$dirnum_test; fi
+    if [ $filenum_test -gt 0 ]; then FILEPERM=$filenum_test; fi
+
 fi
 
 # Verify repo path exists
@@ -284,7 +313,7 @@ do
     # Check if directory exists, else create it
     if [ ! -d "$mirrordst" ]; then
         warning "A local path for \"${mirrorname}\" does not exists, will create one"
-        if [ ! mkdir "$mirrordst" 2>&1 ]; then
+        if [ ! mkdir -m $DIRPERM "$mirrordst" 2>&1 ]; then
             error "The path \"${mirrordst}\" could not be created. Continuing with the next mirror"
             progresscounter=$((progresscounter+3))
             continue
@@ -464,6 +493,9 @@ do
                 continue
             fi
 
+            # Add the chmod rule to options
+            opts+=(--chmod=D${DIRPERM},F${FILEPERM})
+
             # header for the new log fil
             print_header_updatelog "rsync" "$remotesrc" "$mirrordst" "$transfersize" "$availablesize" "$updatelogfile" \
             "${opts[*]}"
@@ -509,6 +541,9 @@ do
                 ((++progresscounter))
                 continue
             fi
+
+            # Add the chmod rule to options
+            opts+=(--chmod=D${DIRPERM},F${FILEPERM})
 
             # header for the new log fil
             print_header_updatelog "http" "$remotesrc" "$mirrordst" "$transfersize" "$availablesize" "$updatelogfile" \
