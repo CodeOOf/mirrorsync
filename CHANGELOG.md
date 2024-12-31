@@ -1,5 +1,8 @@
 # Changelog
 
+## Pre-Release 1.0.1-beta (31 December, 2024)
+* Minor bug fixes, see #5
+
 ## Pre-Release 1.0.0-beta (30 December, 2024)
 * Minor bug fixes
 * Moved the lockfile creation to the exclude folder to avoid write premission 

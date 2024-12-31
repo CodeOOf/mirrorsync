@@ -274,22 +274,30 @@ do
     # Define the new path
     mirrordst="${LOCALDST}/$mirrorname"
 
+    # Check if directory exists, else create it
+
     # Validate local path is defined and able to write to
     if [ -z "$mirrorname" ]; then
         error "no local directory is defined in \"${repoconfig}\". Continuing with the next mirror"
         progresscounter=$((progresscounter+3))
         continue
-    elif [ ! -w "$mirrordst" ]; then
-        error "The path \"${mirrordst}\" is not writable. Continuing with the next mirror"
-        progresscounter=$((progresscounter+3))
-        continue
-    elif [ ! -d "$mirrordst" ]; then
+    fi
+
+    # Check if directory exists, else create it
+    if [ ! -d "$mirrordst" ]; then
         warning "A local path for \"${mirrorname}\" does not exists, will create one"
         if [ ! mkdir "$mirrordst" 2>&1 ]; then
             error "The path \"${mirrordst}\" could not be created. Continuing with the next mirror"
             progresscounter=$((progresscounter+3))
             continue
         fi
+    fi
+
+    # Validate that the current user can write to this path
+    if [ ! -w "$mirrordst" ]; then
+        error "The path \"${mirrordst}\" is not writable. Continuing with the next mirror"
+        progresscounter=$((progresscounter+3))
+        continue
     fi
     
     # Validate the remotes variable is a array
