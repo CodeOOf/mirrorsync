@@ -274,8 +274,6 @@ do
     # Define the new path
     mirrordst="${LOCALDST}/$mirrorname"
 
-    # Check if directory exists, else create it
-
     # Validate local path is defined and able to write to
     if [ -z "$mirrorname" ]; then
         error "no local directory is defined in \"${repoconfig}\". Continuing with the next mirror"
