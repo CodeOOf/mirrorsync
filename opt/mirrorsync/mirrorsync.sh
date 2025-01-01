@@ -313,7 +313,7 @@ do
     # Check if directory exists, else create it
     if [ ! -d "$mirrordst" ]; then
         warning "A local path for \"${mirrorname}\" does not exists, will create one"
-        if [ ! mkdir -m $DIRPERM "$mirrordst" 2>&1 ]; then
+        if ! (mkdir -m $DIRPERM "$mirrordst" 2>&1); then
             error "The path \"${mirrordst}\" could not be created. Continuing with the next mirror"
             progresscounter=$((progresscounter+3))
             continue
