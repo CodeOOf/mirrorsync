@@ -161,8 +161,8 @@ fi
 
 # If chmod argument is set, change the numbers
 if [ ! -z "$chmod_arg" ]; then
-    local dirnum_test=0
-    local filenum_test=0
+    dirnum_test=0
+    filenum_test=0
 
     # Exctract the first 3 numbers after each character match
     [[ "${TEST}" =~ [dD]([[:digit:]]{3}) ]] && dirnum_test="${BASH_REMATCH[1]}"
