@@ -26,6 +26,7 @@ DST=""
 SYNCLIST=()
 DATE_FORMAT="+%Y-%m-%d %H:%M:%S"
 COMPDATE_FORMAT="+%Y%m%d%H%M%S"
+FILEDATE_FORMAT="+%Y%m%d%H%M.%S"
 DIRPERM=755
 FILEPERM=644
 
@@ -261,7 +262,7 @@ parsefilelist() {
                             local modified_dst=$(date -r "$dst")
 
                             local compdate_src=$(date -d "$modified_src" "$COMPDATE_FORMAT")
-                            local compdate_dst=$(date -d "$modified_dst" "$COMPDATE_FORMAT")
+local compdate_dst=$(date -d "$modified_dst" "$COMPDATE_FORMAT")
 
                             # Check if file is changed based on date if date was extracted from source
                             if [ ! -z "$modified_src" ] && [[ $compdate_src > $compdate_dst ]]; then
@@ -291,12 +292,13 @@ parsefilelist() {
                     fi
 
                     local modified_str=$(date -d "$modified_src" "$DATE_FORMAT")
+                    local modified_file=$(date -d "$modified_src" "$FILEDATE_FORMAT")
                     local filesize=$(echo $bytes_src | numfmt --to=iec-i)
 
                     debug "Added a file of size ${filesize}B from \"${url}\" to the list, it was last modifed " \
                           "\"${modified_str}\""
                     # Add to the array
-                    SYNCLIST+=("${url},${dst},${bytes_src},${href}")
+                    SYNCLIST+=("${url},${dst},${bytes_src},${href},${modified_file}")
                 else
                     debug "Not a file \"$url\", ignoring path"
                 fi
@@ -313,7 +315,7 @@ parsefilelist() {
         for localfile in "${localfiles[@]}"
         do
             # Add to the array
-            SYNCLIST+=(",${localfile},,")
+            SYNCLIST+=(",${localfile},,,")
         done
     fi
 }
@@ -399,6 +401,9 @@ do
 
                     debug "Setting permission $FILEPERM on \"${syncinfo[1]}\""
                     chmod $FILEPERM "${syncinfo[1]}"
+
+                    debug "Changing the files modification date to remotes"
+                    touch -t "${syncinfo[4]}" "${syncinfo[1]}"
                 else
                     error "Could not create the directory \"${dstdir}\" for the transfered file \"${tmpfile}\""
                 fi
@@ -421,6 +426,9 @@ do
 
                 debug "Setting permission $FILEPERM on \"${syncinfo[1]}\""
                 chmod $FILEPERM "${syncinfo[1]}"
+
+                debug "Changing the files modification date to remotes"
+                touch -t "${syncinfo[4]}" "${syncinfo[1]}"
             else
                 error "Could not create the directory \"${dstdir}\" for the remote file \"${syncinfo[0]}\""
             fi

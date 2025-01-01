@@ -1,9 +1,11 @@
 # Changelog
 
 ## Pre-Release 1.0.1-beta (1 January, 2025)
+* Files are added with the remote modification date, see #2
 * Adding directory and file permission on every synced file and path with 
 option to use custom, see #4
-* Minor bug fixes, see #5
+* Minor general bug fixes like syntax errors
+* Bugfixes: #5
 
 ## Pre-Release 1.0.0-beta (30 December, 2024)
 * Minor bug fixes
