@@ -106,13 +106,13 @@ fi
 # First create all the directories
 log "Setting up all the directories..."
 log "Creating the directory \"${REPOCONFIGDIR}\""
-mkdir -p "$REPOCONFIGDIR"
+mkdir -m 755 -p "$REPOCONFIGDIR"
 log "Creating the directory \"${INSTALLDIR}\""
-mkdir -p "$INSTALLDIR"
+mkdir -m 555 -p "$INSTALLDIR"
 log "Creating the directory \"${EXCLUDESDIR}\""
-mkdir -p "$EXCLUDESDIR"
+mkdir -m 750 -p "$EXCLUDESDIR"
 log "Creating the directory \"${LOGDIR}\""
-mkdir -p "$LOGDIR"
+mkdir -m 750 -p "$LOGDIR"
 
 # Copy over the files
 log "Copying over all the files to their destinations..."
@@ -125,13 +125,9 @@ cp "${SRC_CONFIGDIR}/mirrorsync.conf" "${CONFIGDIR}/mirrorsync.conf"
 
 # Fix the .version file to readonly
 log "Setting up access rights"
-chmod 555 "${INSTALLDIR}"
 chmod 444 "${INSTALLDIR}/.version"
 chmod 554 "${INSTALLDIR}/mirrorsync.sh"
 chmod 554 "${INSTALLDIR}/httpsync.sh"
-chmod 750 "${EXCLUDESDIR}"
-chmod 750 "${LOGDIR}"
-chmod 755 "${REPOCONFIGDIR}"
 chmod 755 "${CONFIGDIR}"
 chmod 644 "${CONFIGDIR}/mirrorsync.conf"
 

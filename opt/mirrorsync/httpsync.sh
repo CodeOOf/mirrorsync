@@ -26,6 +26,9 @@ DST=""
 SYNCLIST=()
 DATE_FORMAT="+%Y-%m-%d %H:%M:%S"
 COMPDATE_FORMAT="+%Y%m%d%H%M%S"
+FILEDATE_FORMAT="+%Y%m%d%H%M.%S"
+DIRPERM=755
+FILEPERM=644
 
 # Log functions
 log() { printf "[%(%F %T)T] %s\n" -1 "$*" >&2; }
@@ -46,6 +49,10 @@ Arguments:
 
   -h, --help
     Display this usage message and exit.
+
+  --chmod=DXXX,FYYY
+    Set specific file or directory permission on the destination mirror. Only numeric chmod is allowed.
+    Default: D${DIRPERM},F${FILEPERM}
 
   -d, --debug
     Activate Debug Mode, provides a very detailed output to the system console.
@@ -83,9 +90,13 @@ Arguments:
 EOF
 }
 
+# Temporary arguments variables
+chmod_arg=""
+
 # Arguments Parser
 while [ "$#" -gt 0 ]; do
     case $1 in
+        --chmod=*) chmod_arg="${1#*=}";;
         -d|--debug) DEBUG_ARG=1;;
         --delete-after) DELETE_AFTER=1;;
         --delete-excluded) DELETE_EXCLUDE=1;;
@@ -113,6 +124,23 @@ DST="${POSITIONAL_ARGS[1]}"
 
 # If the destination path is empty then do from user position
 if [ -z "$DST" ]; then DST=$(pwd); fi
+
+# If chmod argument is set, change the numbers
+if [ ! -z "$chmod_arg" ]; then
+    dirnum_test=0
+    filenum_test=0
+
+    # Exctract the first 3 numbers after each character match
+    [[ "${TEST}" =~ [dD]([[:digit:]]{3}) ]] && dirnum_test="${BASH_REMATCH[1]}"
+    [[ "${TEST}" =~ [fF]([[:digit:]]{3}) ]] && filenum_test="${BASH_REMATCH[1]}"
+
+    debug "Extracted the following chmod=D${dirnum_test},F${filenum_test}"
+
+    # Test if numbers are correct then add them to global
+    if [ $dirnum_test -gt 0 ]; then DIRPERM=$dirnum_test; fi
+    if [ $filenum_test -gt 0 ]; then FILEPERM=$filenum_test; fi
+
+fi
 
 # Function to validate if value is matched in a array of queries
 # Usage: arraymatch "value_to_test" "array of values to validate"
@@ -234,7 +262,7 @@ parsefilelist() {
                             local modified_dst=$(date -r "$dst")
 
                             local compdate_src=$(date -d "$modified_src" "$COMPDATE_FORMAT")
-                            local compdate_dst=$(date -d "$modified_dst" "$COMPDATE_FORMAT")
+local compdate_dst=$(date -d "$modified_dst" "$COMPDATE_FORMAT")
 
                             # Check if file is changed based on date if date was extracted from source
                             if [ ! -z "$modified_src" ] && [[ $compdate_src > $compdate_dst ]]; then
@@ -264,12 +292,13 @@ parsefilelist() {
                     fi
 
                     local modified_str=$(date -d "$modified_src" "$DATE_FORMAT")
+                    local modified_file=$(date -d "$modified_src" "$FILEDATE_FORMAT")
                     local filesize=$(echo $bytes_src | numfmt --to=iec-i)
 
                     debug "Added a file of size ${filesize}B from \"${url}\" to the list, it was last modifed " \
                           "\"${modified_str}\""
                     # Add to the array
-                    SYNCLIST+=("${url},${dst},${bytes_src},${href}")
+                    SYNCLIST+=("${url},${dst},${bytes_src},${href},${modified_file}")
                 else
                     debug "Not a file \"$url\", ignoring path"
                 fi
@@ -286,7 +315,7 @@ parsefilelist() {
         for localfile in "${localfiles[@]}"
         do
             # Add to the array
-            SYNCLIST+=(",${localfile},,")
+            SYNCLIST+=(",${localfile},,,")
         done
     fi
 }
@@ -365,9 +394,16 @@ do
             if [ -f "$tmpfile" ]; then
                 dstdir="$(dirname "$tmpfile")"
                 # Ensure that a destination directory exists before moving
-                if mkdir -p "$dstdir" 2>&1; then
+                if mkdir -m $DIRPERM -p "$dstdir" 2>&1; then
                     # Then move the file
+                    debug "Moving the file \"${tmpfile}\" to \"${syncinfo[1]}\""
                     mv "$tmpfile" "${syncinfo[1]}" 2>&1
+
+                    debug "Setting permission $FILEPERM on \"${syncinfo[1]}\""
+                    chmod $FILEPERM "${syncinfo[1]}"
+
+                    debug "Changing the files modification date to remotes"
+                    touch -t "${syncinfo[4]}" "${syncinfo[1]}"
                 else
                     error "Could not create the directory \"${dstdir}\" for the transfered file \"${tmpfile}\""
                 fi
@@ -383,10 +419,16 @@ do
 
             # Ensure that a destination directory exists before transfering
             dstdir="$(dirname "${syncinfo[1]}")"
-            if mkdir -p "$dstdir" 2>&1; then
+            if mkdir -m $DIRPERM -p "$dstdir" 2>&1; then
                 # Begin transfer of file
                 actionlog "Transfering \"${syncinfo[0]}\" to \"${syncinfo[1]}\""
                 curl "${opts[@]}" "${syncinfo[0]}" --output "${syncinfo[1]}" 2>&1
+
+                debug "Setting permission $FILEPERM on \"${syncinfo[1]}\""
+                chmod $FILEPERM "${syncinfo[1]}"
+
+                debug "Changing the files modification date to remotes"
+                touch -t "${syncinfo[4]}" "${syncinfo[1]}"
             else
                 error "Could not create the directory \"${dstdir}\" for the remote file \"${syncinfo[0]}\""
             fi
